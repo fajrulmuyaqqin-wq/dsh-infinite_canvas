@@ -405,15 +405,56 @@ function revealCanvasInRight() {
       try {
         const fn = CTX && CTX.locale && (CTX.locale.getLocale || CTX.locale.getSnapshot);
         const snap = typeof fn === 'function' ? fn.call(CTX.locale) : null;
-        const id = localeIdOf(snap);
-        // 显式选择优先于浏览器语言推断；两者都没有时按中文（本插件的主用户群）
-        return String(id).toLowerCase().startsWith('en') ? 'en' : 'zh';
+        let id = localeIdOf(snap);
+        if (!id && typeof document !== 'undefined' && document.documentElement && typeof document.documentElement.lang === 'string' && document.documentElement.lang) {
+          id = document.documentElement.lang;
+        }
+        if (id) {
+          const lower = String(id).toLowerCase();
+          if (lower.startsWith('zh')) return 'zh';
+          if (lower.startsWith('id') || lower.startsWith('in')) return 'id';
+          return 'en';
+        }
+        return 'zh';
       } catch { return 'zh'; }
     }
-    function effLang() { return (LANG_OVERRIDE === 'en' || LANG_OVERRIDE === 'zh') ? LANG_OVERRIDE : hostLang(); }
+    function effLang() {
+      if (LANG_OVERRIDE) return LANG_OVERRIDE;
+      return hostLang();
+    }
+    const DSH_SUPPORTED_LOCALES = [
+      { id: 'zh', label: '中文' },
+      { id: 'en', label: 'English' },
+      { id: 'ja', label: '日本語' },
+      { id: 'es', label: 'Español' },
+      { id: 'fr', label: 'Français' },
+      { id: 'de', label: 'Deutsch' },
+      { id: 'ru', label: 'Русский' },
+      { id: 'pt', label: 'Português' },
+    ];
+    function dshAvailableLocales() {
+      try {
+        const fn = CTX && CTX.locale && (CTX.locale.getLocale || CTX.locale.getSnapshot);
+        const snap = typeof fn === 'function' ? fn.call(CTX.locale) : null;
+        if (snap && Array.isArray(snap.locales) && snap.locales.length > 0) {
+          return snap.locales.map(l => ({ id: l.id, label: l.label }));
+        }
+      } catch {}
+      return DSH_SUPPORTED_LOCALES;
+    }
     function T(k) {
-      const d = effLang() === 'en' ? DICT_EN : DICT_ZH;
-      return (d && d[k] != null) ? d[k] : k;
+      const lang = effLang();
+      if (lang === 'zh') {
+        if (DICT_ZH && DICT_ZH[k] != null) return DICT_ZH[k];
+        if (DICT_EN && DICT_EN[k] != null) return DICT_EN[k];
+        return k;
+      }
+      if (lang === 'id' && DICT_ID && DICT_ID[k] != null) {
+        return DICT_ID[k];
+      }
+      if (DICT_EN && DICT_EN[k] != null) return DICT_EN[k];
+      if (DICT_ZH && DICT_ZH[k] != null) return DICT_ZH[k];
+      return k;
     }
 
     const DICT_ZH = {
@@ -906,6 +947,14 @@ function revealCanvasInRight() {
       'noResult': '尚未生成',
       'connected': '已连接上游',
       'errCycle': '工作流中存在循环连接，无法运行',
+      'errNodeNotFound': '节点不存在',
+      'errSelfConnect': '不能连接到自身',
+      'errPortNotFound': '端口不存在',
+      'errPortMismatch': '端口类型不匹配',
+      'errPortOccupied': '该输入端口已被占用',
+      'errCycleConnect': '不能形成循环连接',
+      'errSourceNoOutput': '源节点没有输出端口',
+      'errNodeNoInput': '该节点没有输入端口',
       'pickAsset': '从资产库选择资产（点击右侧"资产"标签页中的条目）',
       'clearRef': '清除',
       'projCreatedAt': '创建于',
@@ -1426,6 +1475,32 @@ function revealCanvasInRight() {
       'skillPackEmpty': "（当前未选任何层，不会注入）",
       'copy': "复制",
       'clear': "清空",
+      'langFollow': '跟随宿主',
+      'langZh': '中文 (Chinese)',
+      'langEn': 'English',
+      'langId': 'Bahasa Indonesia',
+      'groupAll': '全部',
+      'groupChinese': '华语',
+      'groupEastAsian': '日韩',
+      'groupWestern': '欧美',
+      'entCharacter': '角色',
+      'entScene': '场景',
+      'entProp': '道具',
+      'entElement': '元素',
+      'lblDialogue': '台词 ',
+      'lblSfx': '音效 ',
+      'lblShot': '镜头 ',
+      'renderErrTitle': '⚠ 画布界面出现了一个渲染错误（已拦截，不会丢失已保存的数据）',
+      'warnNoVideoModel': '未配置视频模型：请到画布设置里选择视频模型后再生成',
+      'warnNoShotDuration': '已连接分镜但暂无镜头时长：视频时长回退 5s（先生成分镜镜头后重跑）',
+      'warnDurOver15': '时长 {n}s 超过单次生成上限 15s：厂商可能直接拒绝——建议按镜头切段或压缩镜头',
+      'warnRefsOver4': '参考图 {n} 张可能超过厂商常见上限（4 张）：超出部分可能被忽略——请核对厂商文档',
+      'warnHardFrameConflict': '硬首帧与实体参考图互斥：已降级为参考图锚定',
+      'warnFrameOff': '首帧已接线但 frameMode=off：本请求不带首帧',
+      'phResponseFormat': 'b64_json / url（留空=API 默认）',
+      'phOutputFormat': 'mp4（留空不发送）',
+      'btnRecover': '恢复界面',
+      'btnReload': '重载页面',
     };
     const DICT_EN = {
       'panel': 'Infinite Canvas',
@@ -1618,7 +1693,7 @@ function revealCanvasInRight() {
       'dirVideoSaved': 'Previz video saved to assets',
       'dirAlsoDownloaded': '(also downloaded)',
       'dirDownloadedOnly': 'Downloaded (not saved to library)',
-      'dirSaveFailDownload': '入库失败，已下载到本地：',
+      'dirSaveFailDownload': 'Failed to save to library, downloaded locally: ',
       'dirVideoEmpty': 'Recording was empty, try again',
       'dirClickToPlace': 'Click the viewport to place',
       'dirTabCams': 'Camera',
@@ -1706,10 +1781,10 @@ function revealCanvasInRight() {
       'dirSkeleton': 'Skeleton',
       'dirMaterial': 'Material',
       'dirBaseColor': 'Base color',
-      'dirRoughness': '粗糙度',
-      'dirMetallic': '金属度',
-      'dirSpecular': '高光',
-      'dirTonemap': '色调映射',
+      'dirRoughness': 'Roughness',
+      'dirMetallic': 'Metallic',
+      'dirSpecular': 'Specular',
+      'dirTonemap': 'Tonemapping',
       'dirColorPresets': 'Presets',
       'dirResetColor': 'Reset',
       'dirReset': 'Reset',
@@ -1845,7 +1920,7 @@ function revealCanvasInRight() {
       'unmute': 'Unmute',
       'volumeLabel': 'Volume',
       'progressLabel': 'Playback progress',
-      'refReorderHint': 'Drag thumbnails to reorder; [图N] is the order bound to the prompt and sent to the vendor',
+      'refReorderHint': 'Drag thumbnails to reorder; [Image N] is the order bound to the prompt and sent to the vendor',
       'searchModelPh': 'Search models…',
       'noModelMatch': 'No matching model',
       'noBibleEntities': 'No characters/scenes/props in the series bible yet',
@@ -1917,6 +1992,14 @@ function revealCanvasInRight() {
       'noResult': 'Not generated yet',
       'connected': 'Upstream connected',
       'errCycle': 'Workflow contains a cycle and cannot run',
+      'errNodeNotFound': 'Node does not exist',
+      'errSelfConnect': 'Cannot connect to itself',
+      'errPortNotFound': 'Port does not exist',
+      'errPortMismatch': 'Port type mismatch',
+      'errPortOccupied': 'This input port is already connected',
+      'errCycleConnect': 'Cannot create a cyclical connection',
+      'errSourceNoOutput': 'Source node has no output port',
+      'errNodeNoInput': 'This node has no input port',
       'pickAsset': 'Pick an asset from the library (Assets tab on the right)',
       'clearRef': 'Clear',
       'projCreatedAt': 'Created',
@@ -2115,7 +2198,7 @@ function revealCanvasInRight() {
       'voiceRoleNeeded': 'Character name required',
       'voiceStart': 'Start (s)',
       'voiceEnd': 'End (s, empty = to end)',
-      'voiceTip': 'Pick a window where this character speaks alone (overlapping-dialogue segments are bad references). The clip is saved as "Character-<name> voice" bound to the entity; @<name> then carries the voice automatically. For降噪/fine separation process in Craft (SoundCraft) and import with the same naming.',
+      'voiceTip': 'Pick a window where this character speaks alone (overlapping-dialogue segments are bad references). The clip is saved as "Character-<name> voice" bound to the entity; @<name> then carries the voice automatically. For noise reduction or fine separation, process in Craft (SoundCraft) and import with the same naming.',
       'voiceExtractDone': 'Saved voice reference: {name}',
       'voiceExtractSrc': 'Extracted from',
       'expandScenes': 'Expand to scenes',
@@ -2438,7 +2521,125 @@ function revealCanvasInRight() {
       'skillPackEmpty': "(no layer selected, nothing injected)",
       'copy': "Copy",
       'clear': "Clear",
+      'langFollow': 'Follow Harness',
+      'langZh': 'Chinese (中文)',
+      'langEn': 'English',
+      'langId': 'Indonesian (Bahasa Indonesia)',
+      'groupAll': 'All',
+      'groupChinese': 'Chinese Cinema',
+      'groupEastAsian': 'East Asian',
+      'groupWestern': 'Western',
+      'entCharacter': 'Character',
+      'entScene': 'Scene',
+      'entProp': 'Prop',
+      'entElement': 'Element',
+      'lblDialogue': 'Dialogue ',
+      'lblSfx': 'SFX ',
+      'lblShot': 'Shot ',
+      'renderErrTitle': '⚠ A render error occurred in the canvas interface (intercepted, saved data is safe)',
+      'warnNoVideoModel': 'No video model configured: select a video model in canvas settings before generating',
+      'warnNoShotDuration': 'Connected storyboard has no shot durations: video duration defaulted to 5s (generate storyboard shots first)',
+      'warnDurOver15': 'Duration {n}s exceeds 15s limit: vendor may reject, consider segmenting by shot',
+      'warnRefsOver4': '{n} reference images may exceed typical vendor limit (4): extra images may be ignored',
+      'warnHardFrameConflict': 'Hard first frame conflicts with entity reference images: downgraded to reference anchoring',
+      'warnFrameOff': 'First frame is connected but frameMode=off: request will not include first frame',
+      'phResponseFormat': 'b64_json / url (blank = API default)',
+      'phOutputFormat': 'mp4 (blank = do not send)',
+      'btnRecover': 'Recover interface',
+      'btnReload': 'Reload page',
     };
+    const DICT_ID = Object.assign({}, DICT_EN, {
+      'btnRecover': 'Pulihkan antarmuka',
+      'btnReload': 'Muat ulang halaman',
+      'panel': 'Infinite Canvas (Kanvas Tak Terhingga)',
+      'errNodeNotFound': 'Simpul tidak ditemukan',
+      'errSelfConnect': 'Tidak dapat menghubungkan ke simpul yang sama',
+      'errPortNotFound': 'Port tidak ditemukan',
+      'errPortMismatch': 'Tipe port tidak cocok',
+      'errPortOccupied': 'Port input ini sudah terhubung',
+      'errCycleConnect': 'Tidak dapat membuat koneksi melingkar',
+      'errSourceNoOutput': 'Simpul asal tidak memiliki port output',
+      'errNodeNoInput': 'Simpul ini tidak memiliki port input',
+      'back': 'Kembali ke sesi',
+      'addNode': 'Tambah simpul',
+      'run': 'Jalankan alur kerja',
+      'running': 'Menjalankan…',
+      'stop': 'Berhenti',
+      'playVideo': 'Putar',
+      'fit': 'Sesuaikan tampilan',
+      'zoomIn': 'Perbesar',
+      'zoomOut': 'Perkecil',
+      'projects': 'Proyek',
+      'assets': 'Aset',
+      'settings': 'Pengaturan',
+      'toggleRight': 'Beralih bilah sisi',
+      'nText': 'Teks',
+      'nImage': 'Gambar',
+      'nVideo': 'Video',
+      'tagText': 'Simpul Teks',
+      'tagScript': 'Simpul Skenario',
+      'tagStoryboard': 'Papan Cerita',
+      'tagImage': 'Simpul Gambar',
+      'tagVideo': 'Simpul Video',
+      'tagFinalCut': 'Simpul Hasil Akhir',
+      'genRunning': 'Menghasilkan…',
+      'generated': 'Selesai dibuat',
+      'genFailed': 'Gagal membuat',
+      'langLabel': 'Bahasa antarmuka',
+      'langFollow': 'Ikuti DeepSeek Harness',
+      'langZh': 'Bahasa Mandarin (中文)',
+      'langEn': 'Bahasa Inggris (English)',
+      'langId': 'Bahasa Indonesia',
+      'groupAll': 'Semua',
+      'groupChinese': 'Sinema Mandarin',
+      'groupEastAsian': 'Asia Timur (Jepang/Korea)',
+      'groupWestern': 'Barat (Hollywood/Eropa)',
+      'entCharacter': 'Karakter',
+      'entScene': 'Adegan',
+      'entProp': 'Properti',
+      'entElement': 'Elemen',
+      'lblDialogue': 'Dialog ',
+      'lblSfx': 'Efek Suara ',
+      'lblShot': 'Bidikan ',
+      'renderErrTitle': '⚠ Terjadi kesalahan render pada kanvas (data tersimpan tetap aman)',
+      'warnNoVideoModel': 'Model video belum dikonfigurasi: pilih model di pengaturan kanvas sebelum membuat',
+      'warnNoShotDuration': 'Papan cerita terhubung tanpa durasi bidikan: durasi video menggunakan 5 dtk',
+      'warnDurOver15': 'Durasi {n} dtk melebihi batas 15 dtk: vendor mungkin menolak, pertimbangkan membagi bidikan',
+      'warnRefsOver4': '{n} gambar referensi mungkin melebihi batas umum vendor (4)',
+      'warnHardFrameConflict': 'Frame awal keras bertentangan dengan gambar referensi entitas: diturunkan ke penautan referensi',
+      'warnFrameOff': 'Frame awal terhubung tetapi dinonaktifkan',
+      'craftTab': 'Craft (Kreasi)',
+      'skillDirector': 'Lensa Sutradara',
+      'skillGenre': 'Genre Cerita',
+      'skillIndustry': 'Genre Industri',
+      'skillForm': 'Format & Spesifikasi',
+      'skillLook': 'Tone & Visual',
+      'skillPreview': 'Pratinjau',
+      'skillToBible': 'Simpan ke Alkitab Proyek',
+      'clear': 'Bersihkan',
+      'copy': 'Salin',
+      'close': 'Tutup',
+      'confirm': 'Konfirmasi',
+      'cancel': 'Batal',
+      'save': 'Simpan',
+      'delete': 'Hapus',
+      'rename': 'Ganti nama',
+      'name': 'Nama',
+      'untitled': 'Tanpa judul',
+      'defaultCanvas': 'Kanvas default',
+      'all': 'Semua',
+      'prompt': 'Prompt',
+      'negative': 'Prompt negatif',
+      'generate': 'Buat',
+      'generating': 'Sedang membuat…',
+      'dataRootLabel': 'Direktori Data',
+      'dataRootHint': 'Folder penyimpanan data aset kanvas',
+      'llmLabel': 'Model Teks (DeepSeek)',
+      'llmHint': 'Pilih model teks untuk skenario dan pembuatan prompt',
+      'supportBtn': 'Bantuan & Umpan Balik',
+      'supportIssues': 'Buka Issue GitHub',
+      'supportWechat': 'Komunitas',
+    });
 
     // ============================================================
     // 样式：节点 / 生成面板的视觉值照抄已验收原型 node-redesign-mockup.html
@@ -3793,7 +3994,10 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
     function defaultCanvasNameFor(projectId) {
       const p = projectOf(projectId);
       const n = String((p && p.defaultCanvasName) || '').trim();
-      return (n ? n.slice(0, 80) : T('defaultCanvas'));
+      if (!n || n === '默认画布' || n === 'Default canvas' || n === 'Default Canvas') {
+        return T('defaultCanvas');
+      }
+      return n.slice(0, 80);
     }
     /** 默认画布是否已被删除（只剩子画布时）。 */
     function defaultCanvasDeleted(projectId) {
@@ -4110,7 +4314,11 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
       return out.length ? out : [src];
     }
     function entityLabelOf(kind) {
-      return kind === 'character' ? '角色' : kind === 'scene' ? '场景' : kind === 'prop' ? '道具' : '元素';
+      const zh = typeof effLang === 'function' ? effLang() === 'zh' : true;
+      if (kind === 'character') return zh ? '角色' : 'Character';
+      if (kind === 'scene') return zh ? '场景' : 'Scene';
+      if (kind === 'prop') return zh ? '道具' : 'Prop';
+      return zh ? '元素' : 'Element';
     }
     function entityCategoryOf(kind) {
       return kind === 'character' ? 'character' : kind === 'scene' ? 'scene' : kind === 'prop' ? 'prop' : 'general';
@@ -4161,17 +4369,17 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
      *  内联设定全文会稀释参考图约束，且文字渲染型模型（Qwen-Image）会把追加文本直接画进画面（用户实测：
      *  设定集全文被渲染成画面右下角的乱码文字块、剧情词凭空生成道具）。视频路径不用 light（不渲染文字，上下文有益）。 */
     function buildEffectivePrompt(prompt, refs, entities, bible, light, opts) {
-      const zh = effLang() !== 'en';
+      const zh = effLang() === 'zh';
       // 续帧降级模式（图1=尾帧）下实体参考图实际是图2..N+1 —— 与请求侧 videoRefNote 统一口径
       const picOffset = (opts && opts.picOffset) || 0;
       const bind = refs.map((r, i) => {
         if (r.entity) {
           const ent = matchBibleEntity(r.entity, bible);
           const desc = light ? '' : ((ent && ent.desc) || '');
-          return `[图${i + 1 + picOffset}] ${entityLabelOf((ent || {}).kind || 'prop')} ${r.entity}${desc ? '（' + desc + '）' : ''}`;
+          return `[图${i + 1 + picOffset}] ${entityLabelOf((ent || {}).kind || 'prop')} ${r.entity}${desc ? (zh ? '（' + desc + '）' : ' (' + desc + ')') : ''}`;
         }
-        return `[图${i + 1 + picOffset}] ${catLabel(r.category)}：${r.name}`;
-      }).join('；');
+        return `[图${i + 1 + picOffset}] ${catLabel(r.category)}${zh ? '：' : ': '}${r.name}`;
+      }).join(zh ? '；' : '; ');
       // 设定集文本注入（视频路径）：外观 desc 必须带；声音设定（voice 字段或 desc 里的「声音：…」）
       // 若没写进 desc 就补一句，保证「台词按这个音色说」的约束不依赖分镜是否手写了 voice。
       // 只注入文字，绝不追加图片（参考图严格等于 ref 连线）。
@@ -4181,13 +4389,13 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
         const voiceLine = voice && !desc.includes(voice)
           ? (zh ? '（声音：' + voice + '）' : ' (voice: ' + voice + ')')
           : '';
-        return `${entityLabelOf(e.kind)} ${e.name}：${desc}${voiceLine}`;
+        return `${entityLabelOf(e.kind)} ${e.name}${zh ? '：' : ': '}${desc}${voiceLine}`;
       });
       return [
         bibleStyleAnchor(bible) ? (zh ? '风格：' : 'Style: ') + bibleStyleAnchor(bible) : '',
         bind ? (zh ? '参考图 → ' : 'Refs -> ') + bind : '',
         stripMentionMarks(prompt),
-        entLines.length ? (zh ? '设定集：' : 'Series bible: ') + entLines.join('；') : '',
+        entLines.length ? (zh ? '设定集：' : 'Series bible: ') + entLines.join(zh ? '；' : '; ') : '',
       ].filter(Boolean).join('\n');
     }
     /** 资产命名时间戳（MM-DD HH:MM）：同节点多次生成靠它区分。 */
@@ -5111,9 +5319,10 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
     }
 
     function outLangLine() {
-      return effLang() === 'en'
-        ? 'Write all narrative content in English.'
-        : '所有叙事内容使用中文书写。';
+      const l = effLang();
+      if (l === 'zh') return '所有叙事内容使用中文书写。';
+      if (l === 'id') return 'Tulis semua konten naratif dalam bahasa Indonesia.';
+      return 'Write all narrative content in English.';
     }
 
     // ============================================================
@@ -5491,7 +5700,7 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
             } catch { stat.failed++; }
           }
           update((st) => { st.assetMigration = stat; if (stat.migrated) st.assetsTick++; });
-          if (stat.migrated) toast((T('assetMigrated') || '已迁移 {n} 个旧资产到数据目录').replace('{n}', String(stat.migrated)));
+          if (stat.migrated) toast((T('assetMigrated') || (effLang() === 'zh' ? '已迁移 {n} 个旧资产到数据目录' : 'Migrated {n} legacy assets to data directory')).replace('{n}', String(stat.migrated)));
           return { ok: true, ...stat };
         } catch (e) {
           update((st) => { st.assetMigration = Object.assign({}, stat, { error: String((e && e.message) || e) }); });
@@ -6162,10 +6371,13 @@ function queueThumb(assetId) {
         if (!/width\/?height/i.test(msg) || !alt) throw e;
         try {
           const reg = await api('POST', '/image/v1/assets', regPayload(meta.rawWidth, meta.rawHeight));
-          console.info('[infinite-canvas] 参考图登记改用文件原始尺寸成功：' + meta.rawWidth + '×' + meta.rawHeight);
+          console.info('[infinite-canvas] Reference image registered with raw dimensions: ' + meta.rawWidth + '×' + meta.rawHeight);
           return reg;
         } catch (e2) {
-          throw new Error(msg + '；改用文件原始尺寸 ' + meta.rawWidth + '×' + meta.rawHeight + ' 重试仍失败：' + ((e2 && e2.message) || e2));
+          const sep = effLang() === 'zh'
+            ? '；改用原始尺寸 ' + meta.rawWidth + '×' + meta.rawHeight + ' 重试仍失败：'
+            : '; retry with raw dimensions ' + meta.rawWidth + '×' + meta.rawHeight + ' failed: ';
+          throw new Error(msg + sep + ((e2 && e2.message) || e2));
         }
       }
     }
@@ -6177,7 +6389,9 @@ function queueThumb(assetId) {
       const head = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
       const sniffed = sniffImageEncoding(head);
       if (!sniffed) {
-        throw new Error('参考图编码不受支持：平台仅接受 JPG/PNG/WebP 原生编码（当前文件的实际字节不是这三类，常见于改后缀的 AVIF/HEIC）——请转成 JPG/PNG 后重新挂参考图');
+        throw new Error(effLang() === 'zh'
+          ? '参考图编码不受支持：平台仅接受 JPG/PNG/WebP 原生编码（当前文件的实际字节不是这三类，常见于改后缀的 AVIF/HEIC）——请转成 JPG/PNG 后重新挂参考图'
+          : 'Unsupported reference image encoding: only native JPG/PNG/WebP are supported. Please convert to JPG/PNG.');
       }
       const mime = sniffed.mime;
       const ext = sniffed.ext;
@@ -6243,9 +6457,9 @@ function queueThumb(assetId) {
           bodyRaw: arrayBufferToBase64(await meta.blob.arrayBuffer()),
           bodyContentType: meta.mime,
           timeoutMs: 180000,
-          label: '参考图上传',
+          label: effLang() === 'zh' ? '参考图上传' : 'Reference image upload',
         });
-        if (!put.ok) throw new Error('参考图上传失败 HTTP ' + put.status + '：' + put.text.slice(0, 200));
+        if (!put.ok) throw new Error((effLang() === 'zh' ? '参考图上传失败 HTTP ' : 'Reference image upload failed HTTP ') + put.status + ': ' + put.text.slice(0, 200));
         // 登记：宽高必须与平台解析出的文件尺寸一致。浏览器解码尺寸与文件原始尺寸在
         // EXIF 旋转图上不同 → 先用解码尺寸，被拒（Params [Width/Height] not available）时用原始尺寸重试一次。
         // 重试发生过 = 这张图带 EXIF 旋转，节点上给一条可见提示（用户下次换图心里有数）
@@ -6255,9 +6469,13 @@ function queueThumb(assetId) {
           if (w === meta.rawWidth && h === meta.rawHeight && (meta.rawWidth !== meta.width || meta.rawHeight !== meta.height)) retried = true;
           return regPayload(w, h);
         }, meta);
-        if (retried && o.warn) o.warn('参考图带 EXIF 旋转：平台按文件原始尺寸 ' + meta.rawWidth + '×' + meta.rawHeight + ' 登记成功（浏览器解码是 ' + meta.width + '×' + meta.height + '）');
+        if (retried && o.warn) {
+          o.warn(effLang() === 'zh'
+            ? '参考图带 EXIF 旋转：平台按文件原始尺寸 ' + meta.rawWidth + '×' + meta.rawHeight + ' 登记成功（浏览器解码是 ' + meta.width + '×' + meta.height + '）'
+            : 'Reference image has EXIF rotation: registered with raw dimensions ' + meta.rawWidth + '×' + meta.rawHeight + ' (browser decoded ' + meta.width + '×' + meta.height + ')');
+        }
         const aid = reg && reg.reference && reg.reference.asset_id;
-        if (!aid) throw new Error('参考图登记失败：响应中没有 reference.asset_id');
+        if (!aid) throw new Error(effLang() === 'zh' ? '参考图登记失败：响应中没有 reference.asset_id' : 'Reference image registration failed: missing reference.asset_id');
         if (ref.assetId) compAssetIdCache.set(ref.assetId, aid);
         referenceImages.push({ asset_id: aid });
       }
@@ -6282,7 +6500,7 @@ function queueThumb(assetId) {
           try { await api('POST', '/image/v1/tasks/' + encodeURIComponent(tid) + '/cancel', {}); } catch { /* 取消失败不影响中断（积分自动释放） */ }
           throw new Error(T('stoppedNote'));
         }
-        const q = await api('GET', '/image/v1/tasks/' + encodeURIComponent(tid)).catch((e) => { console.warn('[infinite-canvas] 优云图片轮询失败（继续）:', String((e && e.message) || e)); return null; });
+        const q = await api('GET', '/image/v1/tasks/' + encodeURIComponent(tid)).catch((e) => { console.warn('[infinite-canvas] Image task polling failed (continuing):', String((e && e.message) || e)); return null; });
         if (!q || !q.task) continue;
         const st = String(q.task.status || '');
         if (st === 'succeeded') {
@@ -8323,7 +8541,7 @@ function queueThumb(assetId) {
     async function craftProjectCleanup(pid) {
       try {
         const r = await hostRpc('projectCraftRemove', { projectId: pid });
-        if (r && r.ok === false && r.error) toast('Craft 目录清理未完成：' + r.error);
+        if (r && r.ok === false && r.error) toast((effLang() === 'zh' ? 'Craft 目录清理未完成：' : 'Craft directory cleanup incomplete: ') + r.error);
       } catch { /* 旧 Host 无该 RPC → 静默（目录残留不影响功能） */ }
     }
     /** 项目目录下的相对路径 → 本机绝对路径（ArtCraft 的 args/FCP7 XML 都用它）。 */
@@ -8591,7 +8809,7 @@ function queueThumb(assetId) {
       try {
         const r = await hostRpc('updateSetRegistry', { override: val });
         update((s) => { s.updateRegistry = r.override || val; s.updateRegistryResolved = r.resolved || null; });
-        toast(T('updateSrcSet') + (r.resolved ? '：' + (r.resolved === 'china' ? T('updateSrcChina') : T('updateSrcOfficial')) : ''));
+        toast(T('updateSrcSet') + (r.resolved ? (effLang() === 'zh' ? '：' : ': ') + (r.resolved === 'china' ? T('updateSrcChina') : T('updateSrcOfficial')) : ''));
       } catch { /* 旧 Host 无此 RPC：UI 状态已记录，仅生效源未知 */ }
     }
     const srcLabel = (kind) => (kind === 'china' ? T('updateSrcChina') : kind === 'official' ? T('updateSrcOfficial') : T('updateSrcAuto'));
@@ -8606,7 +8824,7 @@ function queueThumb(assetId) {
         return info;
       } catch (e) {
         update((s) => { s.updateInfo = null; s.updateChecking = false; s.updateMsg = silent ? null : String(e.message || e); });
-        if (!silent) toast('更新检查失败：' + (e.message || e));
+        if (!silent) toast((effLang() === 'zh' ? '更新检查失败：' : 'Update check failed: ') + (e.message || e));
         return null;
       }
     }
@@ -8923,7 +9141,7 @@ function queueThumb(assetId) {
           } catch (e) {
             if (/未知操作/.test(String((e && e.message) || e))) { hostSyncStopped = true; return; }
             // 其余失败记入控制台，继续下一个项目
-            console.warn('[infinite-canvas] 项目合并失败（下轮重试）:', hp.id, e);
+            console.warn('[infinite-canvas] Project merge failed (will retry next turn):', hp.id, e);
           }
         }
         // 一次性请求（Host 读取即清空，绝不能因后面出错而丢失）：
@@ -8931,7 +9149,7 @@ function queueThumb(assetId) {
         try {
           if (r.runRequest) await handleRunRequest(r.runRequest);
         } catch (e) {
-          toast(T('runRequestFailed') + '：' + String((e && e.message) || e));
+          toast(T('runRequestFailed') + (effLang() === 'zh' ? '：' : ': ') + String((e && e.message) || e));
         }
         try {
           if (r.openRequest) {
@@ -9235,7 +9453,7 @@ function queueThumb(assetId) {
     async function aiScriptNodes(idea, model, onDelta) {
       const settings = loadSettings();
       const bible = bibleBlock(loadBible(S.activeId));
-      const zh = effLang() !== 'en';
+      const zh = effLang() === 'zh';
       // 按当前专家调度：人设 + 技能组（general 等价于原「内置专家 + canvas-craft」）
       const ctx = await buildExpertContext('script', settings, zh);
       const rules = ctx.rules
@@ -9301,7 +9519,7 @@ function queueThumb(assetId) {
     async function aiStoryboardShots(scriptText, requirement, count, model, onDelta, prevTail, opts) {
       const settings = loadSettings();
       const bible = bibleBlock(loadBible(S.activeId));
-      const zh = effLang() !== 'en';
+      const zh = effLang() === 'zh';
       const contOn = !(opts && opts.cont === false); // 分镜衔接开关（默认开）
       // 特效演绎开关：任一所选题材/影调卡 fx_motion:true → 追加特效演绎扩展块（见 FX_RULES）
       const fxOn = await fxMotionEnabledFor(S.activeId);
@@ -9697,7 +9915,7 @@ function queueThumb(assetId) {
       updateChecking: false,
       updateBusy: false,
       updateMsg: null,
-      updateDismissed: false,
+      updateDismissed: true,
       keysOpen: false,       // 左上角快捷键面板是否展开（纯 UI 状态，不持久化）
       skillPalette: false,   // 创作技能浮层（Ctrl/⌘+Shift+K 打开；纯 UI 状态，不持久化）
       canvasHost: null,      // 画布当前宿主：'main'（全屏面板）| 'pane'（会话右栏页签）| null——同一时刻只允许一处实例
@@ -9781,7 +9999,7 @@ function queueThumb(assetId) {
           }
         }).catch((err) => {
           // 同步失败必须让用户知道：否则对话侧看到的是旧内容，用户以为"刚写的对话里查不到"
-          if (!syncWarned) { syncWarned = true; toast(T('syncFailed') + '：' + String((err && err.message) || err)); }
+          if (!syncWarned) { syncWarned = true; toast(T('syncFailed') + (effLang() === 'zh' ? '：' : ': ') + String((err && err.message) || err)); }
         });
       } catch { /* 忽略 */ }
     }
@@ -10162,7 +10380,7 @@ function queueThumb(assetId) {
       if (!nodes.length) return;
       const recs = await idbByProject(S.activeId).catch(() => []);
       if (!recs.length) {
-        try { console.info('[IC] asset-relink: orphans=' + nodes.length + ' recs=0（assetsList 未返回）'); } catch { /* 忽略 */ }
+        try { console.info('[IC] asset-relink: orphans=' + nodes.length + ' recs=0 (assetsList not returned)'); } catch { /* ignore */ }
         return;
       }
       const key = S.activeId + '/' + activeCanvasId();
@@ -10213,14 +10431,14 @@ function queueThumb(assetId) {
       return false;
     }
     function canConnect(fromNode, fromPort, toNode, toPort) {
-      if (fromNode.id === toNode.id) return '不能连接到自身';
+      if (fromNode.id === toNode.id) return T('errSelfConnect');
       const op = ((PORTS[fromNode.type] && PORTS[fromNode.type].outputs) || []).find((p) => p.id === fromPort);
       const ip = ((PORTS[toNode.type] && PORTS[toNode.type].inputs) || []).find((p) => p.id === toPort);
-      if (!op || !ip) return '端口不存在';
-      if (op.kind !== ip.kind) return '端口类型不匹配（' + op.kind + ' → ' + ip.kind + '）';
+      if (!op || !ip) return T('errPortNotFound');
+      if (op.kind !== ip.kind) return T('errPortMismatch') + (effLang() === 'zh' ? '（' : ' (') + op.kind + ' → ' + ip.kind + (effLang() === 'zh' ? '）' : ')');
       const multi = MULTI_INPUT_PORTS.has(toPort) || (toNode.type === 'finalcut' && toPort === 'in');
-      if (!multi && S.graph.edges.some((e) => e.toNode === toNode.id && e.toPort === toPort)) return '该输入端口已被占用';
-      if (reaches(toNode.id, fromNode.id)) return '不能形成循环连接';
+      if (!multi && S.graph.edges.some((e) => e.toNode === toNode.id && e.toPort === toPort)) return T('errPortOccupied');
+      if (reaches(toNode.id, fromNode.id)) return T('errCycleConnect');
       return null;
     }
     function connect(fromNode, fromPort, toNode, toPort) {
@@ -10251,12 +10469,12 @@ function queueThumb(assetId) {
      *  文本 → 分镜表 script / 图片/视频 prompt，图片 → ref，视频 → frame 或成片的 in，分镜表 → 分镜表 prev。
      *  opts.fromPort / opts.toPort 是用户实际拖拽的那个点（拖的是专用角点时会带来明确端口 id）。 */
     function resolveAutoPorts(fromNode, toNode, opts) {
-      if (!fromNode || !toNode) return { error: '节点不存在' };
-      if (fromNode.id === toNode.id) return { error: '不能连接到自身' };
+      if (!fromNode || !toNode) return { error: T('errNodeNotFound') };
+      if (fromNode.id === toNode.id) return { error: T('errSelfConnect') };
       const outs = (PORTS[fromNode.type] && PORTS[fromNode.type].outputs) || [];
       const ins = (PORTS[toNode.type] && PORTS[toNode.type].inputs) || [];
-      if (!outs.length) return { error: '源节点没有输出端口' };
-      if (!ins.length) return { error: '该节点没有输入端口' };
+      if (!outs.length) return { error: T('errSourceNoOutput') };
+      if (!ins.length) return { error: T('errNodeNoInput') };
       const hintIn = String((opts && opts.toPort) || '');
       const hintOut = String((opts && opts.fromPort) || '');
       const fromKind = primaryOutputKind(fromNode);
@@ -10282,9 +10500,9 @@ function queueThumb(assetId) {
       } else if (toNode.type === 'shot') {
         ip = pickIn(fromKind);
       }
-      if (!ip) return { error: '端口类型不匹配（' + fromKind + ' → ' + toNode.type + '）' };
+      if (!ip) return { error: T('errPortMismatch') + (effLang() === 'zh' ? '（' : ' (') + fromKind + ' → ' + toNode.type + (effLang() === 'zh' ? '）' : ')') };
       const candidates = outs.filter((p) => p.kind === ip.kind);
-      if (!candidates.length) return { error: '端口类型不匹配（' + outs.map((p) => p.kind).join('/') + ' → ' + ip.kind + '）' };
+      if (!candidates.length) return { error: T('errPortMismatch') + (effLang() === 'zh' ? '（' : ' (') + outs.map((p) => p.kind).join('/') + ' → ' + ip.kind + (effLang() === 'zh' ? '）' : ')') };
       let op = null;
       if (hintOut && hintOut !== 'auto') op = candidates.find((p) => p.id === hintOut) || null;
       if (!op && ip.id === 'prev') op = candidates.find((p) => p.id === 'tail') || null;
@@ -10421,7 +10639,7 @@ function queueThumb(assetId) {
       const seg = segment || null;
       const shots = seg ? all.slice(seg.from, seg.to + 1) : all;
       if (!shots.length) return '';
-      const zh = effLang() !== 'en';
+      const zh = effLang() === 'zh';
       const durOf = (s) => Math.max(0.3, Number(s.duration) || 3);
       const total = Math.round(shots.reduce((a, s) => a + durOf(s), 0) * 10) / 10;
       const hasDialogue = shots.some((s) => (s.dialogue || []).length);
@@ -10739,26 +10957,27 @@ function queueThumb(assetId) {
       };
       const metas = [];
       const skipped = []; // 被跳过的片段必须让用户看见：静默少段 = 用户以为全片都合进去了
+      const isZh = effLang() === 'zh';
       for (const x of segs) {
-        const segName = String((x.nd.data && x.nd.data.label) || TYPE_LABEL()[x.nd.type] || '片段');
-        if (!x.nd.data.assetId) { skipped.push(segName + '（还没有生成结果）'); continue; }
+        const segName = String((x.nd.data && x.nd.data.label) || TYPE_LABEL()[x.nd.type] || (isZh ? '片段' : 'Segment'));
+        if (!x.nd.data.assetId) { skipped.push(segName + (isZh ? '（还没有生成结果）' : ' (no generated result yet)')); continue; }
         try {
           const rec = await idbGet(x.nd.data.assetId);
           const blob = await assetBlob(x.nd.data.assetId);
-          if (!blob) { skipped.push(segName + '（资产读不到，可能是文件已被删除）'); continue; }
-          if (!blob.size) { skipped.push(segName + '（资产为空文件）'); continue; }
+          if (!blob) { skipped.push(segName + (isZh ? '（资产读不到，可能是文件已被删除）' : ' (asset unreadable, file may be deleted)')); continue; }
+          if (!blob.size) { skipped.push(segName + (isZh ? '（资产为空文件）' : ' (asset is empty file)')); continue; }
           const ttsId = n.data.tts && n.data.tts[x.e.id] && n.data.tts[x.e.id].assetId;
           const ttsUrl = ttsId ? await assetUrl(ttsId) : null;
           // 分镜的编辑时长（1-3s 级）作为成片裁剪依据：API 生成的片段偏长，成片时裁到分镜时长
           const editDur = Number(x.nd.data.editDuration) || null;
           metas.push({ url: URL.createObjectURL(blob), name: (rec && rec.name) || 'seg', sub: getSub(x), ttsUrl, dur: editDur || undefined });
         } catch (e) {
-          skipped.push(segName + '（读取失败：' + String((e && e.message) || e) + '）');
+          skipped.push(segName + (isZh ? '（读取失败：' : ' (read failed: ') + String((e && e.message) || e) + (isZh ? '）' : ')'));
         }
       }
       if (!metas.length) {
         throw new Error(skipped.length
-          ? ('没有可合成的片段——' + skipped.join('；'))
+          ? ((isZh ? '没有可合成的片段——' : 'No composable segments - ') + skipped.join(isZh ? '；' : '; '))
           : T('noSegments'));
       }
       if (skipped.length) {
@@ -11000,11 +11219,23 @@ function queueThumb(assetId) {
               const wantRatio = String((n.data && n.data.ratio) || '16:9');
               const gotLandscape = meta.w > meta.h;
               const notes = [];
-              if (wantRatio === '16:9' && !gotLandscape) notes.push('厂商返回 ' + meta.w + '×' + meta.h + '（竖屏），与设置的 16:9 不符：该厂商可能忽略 size 参数，可在供应商「扩展参数」里覆盖（如 {"parameters":{"size":"1920*1080"}}）');
-              else if (wantRatio === '9:16' && gotLandscape) notes.push('厂商返回 ' + meta.w + '×' + meta.h + '（横屏），与设置的 9:16 不符');
+              const isZh = effLang() === 'zh';
+              if (wantRatio === '16:9' && !gotLandscape) {
+                notes.push(isZh
+                  ? '厂商返回 ' + meta.w + '×' + meta.h + '（竖屏），与设置的 16:9 不符：该厂商可能忽略 size 参数，可在供应商「扩展参数」里覆盖（如 {"parameters":{"size":"1920*1080"}}）'
+                  : 'Provider returned ' + meta.w + '×' + meta.h + ' (portrait), mismatching 16:9 setting. Provider may ignore size; override via extra parameters (e.g. {"parameters":{"size":"1920*1080"}})');
+              } else if (wantRatio === '9:16' && gotLandscape) {
+                notes.push(isZh
+                  ? '厂商返回 ' + meta.w + '×' + meta.h + '（横屏），与设置的 9:16 不符'
+                  : 'Provider returned ' + meta.w + '×' + meta.h + ' (landscape), mismatching 9:16 setting');
+              }
               const wantDur = autoDuration;
-              if (wantDur && meta.d && Math.abs(meta.d - wantDur) > 1.5) notes.push('实际时长 ' + meta.d.toFixed(1) + 's ≠ 设置 ' + wantDur + 's（厂商单次上限或已钳制）');
-              if (notes.length) addWarn(notes.join('；')); // 追加而非覆盖：本轮更早的告警（自动续帧/参考图超限/厂商降级）不能被抹掉
+              if (wantDur && meta.d && Math.abs(meta.d - wantDur) > 1.5) {
+                notes.push(isZh
+                  ? '实际时长 ' + meta.d.toFixed(1) + 's ≠ 设置 ' + wantDur + 's（厂商单次上限或已钳制）'
+                  : 'Actual duration ' + meta.d.toFixed(1) + 's != set ' + wantDur + 's (provider limit applied)');
+              }
+              if (notes.length) addWarn(notes.join(isZh ? '；' : '; ')); // 追加而非覆盖：本轮更早的告警（自动续帧/参考图超限/厂商降级）不能被抹掉
             }
           } catch { /* 探测失败不影响生成 */ }
           // 尾帧抽取（续帧接力的关键）：末段多帧候选里选「动作进行中/清晰/不抖」的一帧，
@@ -11262,6 +11493,14 @@ function queueThumb(assetId) {
       drag.mode = 'pan';
       drag.sx = e.clientX; drag.sy = e.clientY;
       try { canvasEl.setPointerCapture(e.pointerId); } catch { /* 忽略 */ }
+      const onDocMove = (ev) => { onCanvasPointerMove(ev); };
+      const onDocUp = (ev) => {
+        window.removeEventListener('pointermove', onDocMove);
+        window.removeEventListener('pointerup', onDocUp);
+        onCanvasPointerUp(ev);
+      };
+      window.addEventListener('pointermove', onDocMove);
+      window.addEventListener('pointerup', onDocUp);
     }
     function startMarquee(e) {
       drag.mode = 'marquee';
@@ -11269,12 +11508,20 @@ function queueThumb(assetId) {
       const w = screenToWorld(e.clientX, e.clientY);
       drag.marquee = { x0: w.x, y0: w.y, x1: w.x, y1: w.y };
       try { canvasEl.setPointerCapture(e.pointerId); } catch { /* 忽略 */ }
+      const onDocMove = (ev) => { onCanvasPointerMove(ev); };
+      const onDocUp = (ev) => {
+        window.removeEventListener('pointermove', onDocMove);
+        window.removeEventListener('pointerup', onDocUp);
+        onCanvasPointerUp(ev);
+      };
+      window.addEventListener('pointermove', onDocMove);
+      window.addEventListener('pointerup', onDocUp);
     }
     function onNodePointerDown(e, n) {
       if (e.button === 2 || e.button === 1) return;
       const t = e.target;
       // 真正的交互控件（按钮/下拉/视频控件/可编辑输入）保留原生行为；
-      // 内容区（图片/视频预览、文本正文、镜头清单）只负责选中 + 弹面板，不再从这里发起拖动。
+      // 卡片主体与标题栏均支持自由拖动（点击由 onClick 在 !drag.moved 时弹面板）
       if (isNodeInteractiveTarget(t)) return;
       e.stopPropagation();
       closeMenu();
@@ -11293,8 +11540,6 @@ function queueThumb(assetId) {
       } else if (!S.sel.has(n.id)) {
         update((s) => { s.sel = new Set([n.id]); s.selEdge = null; });
       }
-      // 拖动只从标题栏 / 节点空白（非内容区）发起；内容区 pointerdown 到此为止（点击由 onClick 弹面板）
-      if (isNodeContentTarget(t) && !isNodeNonOpenTarget(t)) return;
       drag.mode = 'node';
       drag.sx = e.clientX; drag.sy = e.clientY;
       drag.moved = false;
@@ -11321,7 +11566,14 @@ function queueThumb(assetId) {
       if (drag.raf) { try { cancelAnimationFrame(drag.raf); } catch { /* 忽略 */ } drag.raf = 0; }
       // P2：拖动期间禁用节点 sheen filter 动画（filter 动画会让整块节点每帧重新光栅化）
       try { if (canvasEl) canvasEl.classList.add('is-node-dragging'); } catch { /* 忽略 */ }
-      try { canvasEl.setPointerCapture(e.pointerId); } catch { /* 忽略 */ }
+      const onDocMove = (ev) => { onCanvasPointerMove(ev); };
+      const onDocUp = (ev) => {
+        window.removeEventListener('pointermove', onDocMove);
+        window.removeEventListener('pointerup', onDocUp);
+        onCanvasPointerUp(ev);
+      };
+      window.addEventListener('pointermove', onDocMove);
+      window.addEventListener('pointerup', onDocUp);
     }
     function onPortPointerDown(e, n, port, dir) {
       if (e.button !== 0) return;
@@ -11331,6 +11583,14 @@ function queueThumb(assetId) {
       drag.mode = 'link';
       drag.linkFrom = { node: n, port: port.id, dir };
       try { canvasEl.setPointerCapture(e.pointerId); } catch { /* 忽略 */ }
+      const onDocMove = (ev) => { onCanvasPointerMove(ev); };
+      const onDocUp = (ev) => {
+        window.removeEventListener('pointermove', onDocMove);
+        window.removeEventListener('pointerup', onDocUp);
+        onCanvasPointerUp(ev);
+      };
+      window.addEventListener('pointermove', onDocMove);
+      window.addEventListener('pointerup', onDocUp);
       updateTempEdge(e.clientX, e.clientY);
       notify();
     }
@@ -11515,6 +11775,7 @@ function queueThumb(assetId) {
           }
         }
       }
+      const wasMoved = drag.moved;
       drag.mode = null;
       drag.nodeStarts = null;
       drag.marquee = null;
@@ -11522,6 +11783,11 @@ function queueThumb(assetId) {
       drag.snapCandidates = null;
       drag.pendingEvent = null; drag.lastEvent = null;
       notify(); // 拖动/平移/连线的唯一一次全树通知（拖动帧内绝不 notify）
+      if (wasMoved) {
+        setTimeout(() => { drag.moved = false; }, 50);
+      } else {
+        drag.moved = false;
+      }
     }
     function onCanvasDoubleClick(e) {
       if (e.target.closest && (e.target.closest('[data-node-id]') || e.target.closest('.dshic-composer'))) return;
@@ -11948,7 +12214,7 @@ function queueThumb(assetId) {
             }, n.data.label || TYPE_LABEL()[nt]),
         // 旧类型小标签（原型 .legacy）：只有旧项目里记录了原始类型时才显示
         n.data.legacyType
-          ? h('span', { className: 'dshic-node-legacy' }, '旧:' + String(n.data.legacyType))
+          ? h('span', { className: 'dshic-node-legacy' }, (effLang() === 'zh' ? '旧:' : 'Legacy:') + String(n.data.legacyType))
           : null,
         (n.data.status === 'running' || n.data.aiStatus === 'running') ? h('span', { className: 'dshic-spin' }) : null,
         h('button', {
@@ -11973,6 +12239,7 @@ function queueThumb(assetId) {
         ref: refCb,
         onPointerDown: (e) => onNodePointerDown(e, n),
         onClick: (e) => {
+          if (drag.moved) return;
           const t = e && e.target;
           if (isNodeInteractiveTarget(t)) return;
           if (isNodeNonOpenTarget(t)) return;
@@ -12145,8 +12412,8 @@ function queueThumb(assetId) {
             wav = r.blob; segs = [{ title: T('voiceManual'), from: Number(startS) || 0, to: Number(endS) || 0, lines: [] }];
           }
           const rec = await saveAssetRecord(S.activeId, 'audio', wav, {
-            name: '角色-' + role2 + ' 声音', entity: role2,
-            prompt: T('voiceExtractSrc') + '：' + ((n.data && n.data.label) || nodeId) + (segs.length ? '（' + segs.map((x) => x.title + ' ' + x.from + '-' + x.to + 's').join('、') + '）' : ''),
+            name: (effLang() === 'zh' ? '角色-' : 'Character-') + role2 + (effLang() === 'zh' ? ' 声音' : ' Voice'), entity: role2,
+            prompt: T('voiceExtractSrc') + ': ' + ((n.data && n.data.label) || nodeId) + (segs.length ? '(' + segs.map((x) => x.title + ' ' + x.from + '-' + x.to + 's').join(effLang() === 'zh' ? '、' : ', ') + ')' : ''),
             source: 'voice-extract', category: 'audio',
           });
           setDone(segs);
@@ -12163,11 +12430,11 @@ function queueThumb(assetId) {
             : h('div', { className: 'dshic-modal-warn' }, T('voiceNoDialogue')),
           h(Field, { key: 'role', label: T('voiceRole'), value: role, onChange: setRole, placeholder: T('voiceRolePh') }),
           roles.length && !manual
-            ? h('div', { className: 'dshic-modal-warn' }, T('voiceRolesInShots') + roles.join('、'))
+            ? h('div', { className: 'dshic-modal-warn' }, T('voiceRolesInShots') + roles.join(effLang() === 'zh' ? '、' : ', '))
             : null,
           !manual && windows.length
             ? h('div', { key: 'segs', className: 'dshic-modal-warn' },
-                T('voiceSegs') + '（' + windows.length + '）：',
+                T('voiceSegs') + '(' + windows.length + '): ',
                 windows.map((w) => h('div', { key: w.title + w.from, style: { marginTop: 2 } }, '· ' + w.title + ' ' + Math.round(w.from * 10) / 10 + '-' + Math.round(w.to * 10) / 10 + 's — ' + w.lines.join(' / '))))
             : null,
           manual
@@ -12181,7 +12448,7 @@ function queueThumb(assetId) {
           h('label', { className: 'dshic-row', style: { gap: 6, fontSize: 11 } },
             h('input', { type: 'checkbox', checked: manual, onChange: (e) => setManual(e.target.checked), onPointerDown: (e) => e.stopPropagation() }),
             h('span', {}, T('voiceManual'))),
-          done ? h('div', { className: 'dshic-modal-warn' }, T('voiceExtractDone').replace('{name}', '角色-' + (String(role || '').trim() || '—') + ' 声音') + '（' + done.map((x) => x.title).join('、') + '）') : null,
+          done ? h('div', { className: 'dshic-modal-warn' }, T('voiceExtractDone').replace('{name}', (effLang() === 'zh' ? '角色-' : 'Character-') + (String(role || '').trim() || '—') + (effLang() === 'zh' ? ' 声音' : ' Voice')) + ' (' + done.map((x) => x.title).join(effLang() === 'zh' ? '、' : ', ') + ')') : null,
           err ? h('div', { className: 'dshic-err' }, err) : null,
           h('div', { className: 'dshic-modal-actions' },
             h('button', { type: 'button', className: 'dshic-btn dshic-btn-outline', onClick: onClose, onPointerDown: (e) => e.stopPropagation() }, T('cancel')),
@@ -12405,7 +12672,7 @@ function queueThumb(assetId) {
       // 手写厂商结构化提示词 = 高级直通路径：保留用户的 subject/shot 结构，
       // 只补实体设定文字；风格锁与承接前置块都不再追加，避免污染厂商协议格式。
       const handStructured = handWritten.includes('subject_definitions');
-      const zh = effLang() !== 'en';
+      const zh = effLang() === 'zh';
       const plan = videoContinuityPlan(n, shotList, segMeta, sbUp, zh);
       return { sbUp, shotListAll, segMeta, shotList, durationPlan, autoDuration, handWritten, handStructured, zh, plan };
     }
@@ -12475,12 +12742,12 @@ function queueThumb(assetId) {
       const frameWired = S.graph.edges.some((x) => x.toNode === n.id && x.toPort === 'frame');
       // —— 提交前校验门（显式提示，绝不静默）——
       const warnings = [];
-      if (!mcfg) warnings.push('未配置视频模型：请到画布设置里选择视频模型后再生成');
-      if (sbUp && !durationPlan.value) warnings.push('已连接分镜但暂无镜头时长：视频时长回退 5s（先生成分镜镜头后重跑）');
-      if (autoDuration > 15) warnings.push('时长 ' + autoDuration + 's 超过单次生成上限 15s：厂商可能直接拒绝（如中转站 400）——建议按镜头切段或压缩镜头');
-      if (refs.length > 4) warnings.push('参考图 ' + refs.length + ' 张可能超过厂商常见上限（4 张）：超出部分可能被忽略——请核对厂商文档');
-      if (useFrame && !hardFrame && refs.length) warnings.push('硬首帧与实体参考图互斥：已降级为参考图锚定');
-      if (frameMode === 'off' && frameWired) warnings.push('首帧已接线但 frameMode=off：本请求不带首帧');
+      if (!mcfg) warnings.push(T('warnNoVideoModel'));
+      if (sbUp && !durationPlan.value) warnings.push(T('warnNoShotDuration'));
+      if (autoDuration > 15) warnings.push(T('warnDurOver15').replace('{n}', String(autoDuration)));
+      if (refs.length > 4) warnings.push(T('warnRefsOver4').replace('{n}', String(refs.length)));
+      if (useFrame && !hardFrame && refs.length) warnings.push(T('warnHardFrameConflict'));
+      if (frameMode === 'off' && frameWired) warnings.push(T('warnFrameOff'));
       return {
         p,
         params: {
@@ -12947,7 +13214,7 @@ function queueThumb(assetId) {
                     dragRefIdx === i && 'is-dragging',
                     overRefIdx === i && dragRefIdx >= 0 && dragRefIdx !== i && 'is-drop'),
                   draggable: true,
-                  title: '[图' + (i + 1) + '] ' + r.name + ' · ' + T('refReorderHint'),
+                  title: (effLang() === 'zh' ? '[图' : '[Ref ') + (i + 1) + '] ' + r.name + ' · ' + T('refReorderHint'),
                   'data-ref-idx': i,
                   'data-ref-edge': r.edgeId,
                   onDragStart: (e) => {
@@ -12975,9 +13242,9 @@ function queueThumb(assetId) {
                   onDragEnd: () => { setDragRefIdx(-1); setOverRefIdx(-1); },
                 },
                   r.assetId
-                    ? h(HistThumb, { assetId: r.assetId, active: false, onClick: () => {}, title: '[图' + (i + 1) + '] ' + r.name + ' · ' + T('refReorderHint') })
+                    ? h(HistThumb, { assetId: r.assetId, active: false, onClick: () => {}, title: (effLang() === 'zh' ? '[图' : '[Ref ') + (i + 1) + '] ' + r.name + ' · ' + T('refReorderHint') })
                     : h('span', { className: 'dshic-ref-thumb-empty' }, '…'),
-                  h('span', { className: 'dshic-ref-idx' }, '[图' + (i + 1) + ']'),
+                  h('span', { className: 'dshic-ref-idx' }, (effLang() === 'zh' ? '[图' : '[Ref ') + (i + 1) + ']'),
                   h('button', {
                     type: 'button', className: 'dshic-ref-del', title: T('unbind'),
                     onPointerDown: (e) => e.stopPropagation(),
@@ -13379,7 +13646,10 @@ function queueThumb(assetId) {
       const statusLabel = running ? T('genRunning') : done ? T('generated') : (n.data.status === 'error' ? T('genFailed') : '');
       // 打开面板必须同时选中节点：面板渲染条件是 composerId ∈ S.sel。
       // 视频控件会 stopPropagation（不经过节点根 pointerdown），所以这里自己保证选中。
-      const openPanel = () => selectAndOpenComposer(n.id);
+      const openPanel = () => {
+        if (drag.moved) return;
+        selectAndOpenComposer(n.id);
+      };
       /** 媒体真实像素尺寸 → 记录进节点并按比例校正**预览区**（节点外框 = 预览 + 固定栏）。
        *  「预览区盒比 = 媒体本身的长宽比」：记录的比例与实测一致（3% 容差）就沿用记录值，
        *  明显不一致（API 没按比例出图 / 导入的外部素材）则以**画面实际比例**为准——否则预览必然留边。 */
@@ -13760,7 +14030,7 @@ function queueThumb(assetId) {
             onPointerDown: (e) => e.stopPropagation(),
             onClick: toggle(false),
           }, '▾')),
-        snap && snap.error ? h('div', { className: 'dshic-err' }, T('reqPreviewFail') + '：' + snap.error) : null,
+        snap && snap.error ? h('div', { className: 'dshic-err' }, T('reqPreviewFail') + ': ' + snap.error) : null,
         !snap ? h('div', { className: 'dshic-hint' }, '…') : null,
         ps ? h('div', { className: 'dshic-req-grid' },
           h('div', { className: 'dshic-row' },
@@ -13779,22 +14049,22 @@ function queueThumb(assetId) {
                 ? T('frameOffNone')
                 : (ps.anchorRole === 'reference_image' ? T('anchorRefImage') : T('anchorFirstFrame')))
               + (ps.frameAuto ? ' · ' + T('frameAutoTail') : ''))),
-          h('div', { className: 'dshic-shot-label' }, T('reqPreviewRefs') + '（' + ps.refNames.length + '）'),
+          h('div', { className: 'dshic-shot-label' }, T('reqPreviewRefs') + '(' + ps.refNames.length + ')'),
           ps.refNames.length
             ? ps.refNames.map((nm, i2) => h('div', { key: i2, className: 'dshic-row', style: { gap: 5 } },
-                h('span', { className: 'dshic-mention' }, '[图' + (i2 + 1 + off) + ']'),
+                h('span', { className: 'dshic-mention' }, (effLang() === 'zh' ? '[图' : '[Ref ') + (i2 + 1 + off) + ']'),
                 h('span', { className: 'dshic-hint', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-                  String(nm || '—') + (ps.refRoles[i2] ? '（' + catLabel(ps.refRoles[i2]) + '）' : ''))))
+                  String(nm || '—') + (ps.refRoles[i2] ? ' (' + catLabel(ps.refRoles[i2]) + ')' : ''))))
             : h('div', { className: 'dshic-hint' }, '—'),
           ps.useFrame && off
             ? h('div', { className: 'dshic-row', style: { gap: 5 } },
-                h('span', { className: 'dshic-mention' }, '[图1]'),
-                h('span', { className: 'dshic-hint' }, T('frameModeAuto') + (ps.frameAuto ? '（' + T('frameAutoTail') + '）' : '')))
+                h('span', { className: 'dshic-mention' }, (effLang() === 'zh' ? '[图1]' : '[Ref 1]')),
+                h('span', { className: 'dshic-hint' }, T('frameModeAuto') + (ps.frameAuto ? ' (' + T('frameAutoTail') + ')' : '')))
             : null,
           h('div', { className: 'dshic-row' },
             h('span', { className: 'dshic-shot-label', style: { flex: 'none' } }, T('reqPreviewAudio')),
             h('span', { className: 'dshic-hint', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-              ps.audioNames.length ? ps.audioNames.join('、') : '—')),
+              ps.audioNames.length ? ps.audioNames.join(effLang() === 'zh' ? '、' : ', ') : '—')),
           ps.warnings.length
             ? h('div', { className: 'dshic-req-warns', 'data-req-warnings': String(ps.warnings.length) },
                 ps.warnings.map((w, i2) => h('div', { key: i2, className: 'dshic-hint', style: { color: 'var(--dsw-alias-state-warning-primary, #d08700)' } }, '⚠ ' + w)))
@@ -14057,7 +14327,7 @@ function queueThumb(assetId) {
                 },
               }, Ic('download', 11), T('saveTextAsset')),
               h('button', {
-                type: 'button', className: 'dshic-mini', title: T('expandScenes') + '（每场 → 文本+分镜表 组合）',
+                type: 'button', className: 'dshic-mini', title: T('expandScenes') + (effLang() === 'zh' ? '（每场 → 文本+分镜表 组合）' : ' (each scene: text + storyboard)'),
                 onPointerDown: (e) => e.stopPropagation(),
                 onClick: () => expandScriptToScenes(n),
               }, Ic('expandAll', 11), T('expandScenes')),
@@ -14149,16 +14419,16 @@ function queueThumb(assetId) {
                     ? h('div', { className: 'dshic-shot-label', style: { marginTop: 2, opacity: 0.9 } }, '〔' + T('seg' + pl.seg.charAt(0).toUpperCase() + pl.seg.slice(1)) + '〕')
                     : null,
                   String(sh.tail || '').trim()
-                    ? h('div', { className: 'dshic-shot-label', style: { marginTop: 2, opacity: 0.9 } }, '↳ ' + T('shotTail') + '：' + String(sh.tail).trim())
+                    ? h('div', { className: 'dshic-shot-label', style: { marginTop: 2, opacity: 0.9 } }, '↳ ' + T('shotTail') + ': ' + String(sh.tail).trim())
                     : null,
                   String(sh.cam || '').trim()
                     ? h('div', { className: 'dshic-shot-label', style: { marginTop: 2, opacity: 0.85 } }, '🎥 ' + String(sh.cam).trim())
                     : null,
                   (sh.dialogue || []).length
-                    ? h('div', { className: 'dshic-shot-label', style: { marginTop: 3 } }, '台词 ' + sh.dialogue.map((d) => `${d.role}：${d.line}`).join('；'))
+                    ? h('div', { className: 'dshic-shot-label', style: { marginTop: 3 } }, T('lblDialogue') + sh.dialogue.map((d) => `${d.role}: ${d.line}`).join(effLang() === 'zh' ? '；' : '; '))
                     : null,
                   String(sh.sfx || '').trim()
-                    ? h('div', { className: 'dshic-shot-label', style: { marginTop: 2, opacity: 0.85 } }, '音效 ' + String(sh.sfx).trim())
+                    ? h('div', { className: 'dshic-shot-label', style: { marginTop: 2, opacity: 0.85 } }, T('lblSfx') + String(sh.sfx).trim())
                     : null,
                 );
                 }),
@@ -14210,7 +14480,7 @@ function queueThumb(assetId) {
     async function expandStoryboard(n) {
       const shots = (n.data.shots || []).slice();
       if (!shots.length) { toast(T('expandNoShots')); return; }
-      const zh = effLang() !== 'en';
+      const zh = effLang() === 'zh';
       // 切段规划：纯函数，可在面板上预览，也由 scripts/test-segment-plan.mjs 直接断言
       const plan = planShotSegments(shots, { maxSeconds: Number(n.data.segMaxSeconds) || 15 });
       const segs = plan.segments.length ? plan.segments : [{ index: 0, shots, startIndex: 0, endIndex: shots.length - 1, duration: plan.total, firstSeg: 'opening', lastSeg: 'continuation', opensOnCut: true, closesOnCut: true, seamRisk: 'none', needsTailChain: false, reason: '' }];
@@ -15291,7 +15561,7 @@ function queueThumb(assetId) {
       if (!hasAnyLayer && !o.force) return { text: '', bytes: 0 };
       let P;
       try { P = await loadPackModule(); } catch { return { text: '', bytes: 0 }; }
-      const zh = effLang() !== 'en';
+      const zh = effLang() === 'zh';
       const items = [];
       const push = async (layer, entry) => {
         if (!entry) return;
@@ -15670,13 +15940,13 @@ function queueThumb(assetId) {
     const clipLabel = (name) => {
       const key = String(name || '').toLowerCase().replace(/\s+/g, '_');
       const hit2 = CLIP_LABELS[key];
-      if (hit2) return effLang() === 'en' ? hit2.en : hit2.zh;
+      if (hit2) return effLang() === 'zh' ? hit2.zh : hit2.en;
       return String(name || '');
     };
     const DIRECTOR_SHOT_SIZES = () => {
       const E2 = directorEngine();
       const list = (E2 && E2.SHOT_FILLS) || [];
-      return list.map((x) => ({ id: x.id, label: effLang() === 'en' ? x.en : x.zh, fill: x.fill, targetH: x.targetH }));
+      return list.map((x) => ({ id: x.id, label: effLang() === 'zh' ? x.zh : x.en, fill: x.fill, targetH: x.targetH }));
     };
     const DIRECTOR_MOVES = () => [
       { id: 'static', label: T('dirMoveStatic') },
@@ -15690,10 +15960,10 @@ function queueThumb(assetId) {
     ];
     /** 本地化后的角色/几何/建筑/机位预设清单（引擎给 zh/en 双语字段）。 */
     function directorPresetLists() {
-      const en = effLang() === 'en';
+      const zh = effLang() === 'zh';
       const E = directorEngine();
       if (!E) return { actors: [], geoms: [], builds: [], cams: [] };
-      const lbl = (x) => (en ? x.en : x.zh);
+      const lbl = (x) => (zh ? x.zh : x.en);
       return {
         actors: E.ACTOR_PRESETS.map((p, i) => ({ ...p, label: lbl(p) + ' ' + (i + 1) })),
         geoms: E.GEOMETRY_PRESETS.map((p) => ({ ...p, label: lbl(p) })),
@@ -16237,7 +16507,7 @@ const DIRECTOR_KEY_HELP = [
         patch((n) => {
           if (!Array.isArray(n.shots)) n.shots = [];
           const start = +playT.toFixed(2);
-          n.shots.push({ cameraId: n.activeCameraId || '', start, end: start + 2, label: '镜头 ' + (n.shots.length + 1) });
+          n.shots.push({ cameraId: n.activeCameraId || '', start, end: start + 2, label: (effLang() === 'zh' ? '镜头 ' : 'Shot ') + (n.shots.length + 1) });
           n.shots.sort((a, b) => a.start - b.start);
         });
         setMsg({ kind: 'ok', text: T('dirShotAdded') });
@@ -16461,7 +16731,7 @@ const DIRECTOR_KEY_HELP = [
         // 男性体型用 Explorer 网格，女性/未指明用 X——资产跟随体型表，不再写死
         const aid = t.assetId || 'xbot';
         await loadModel(aid).catch((err) => setMsg({ kind: 'err', text: String((err && err.message) || err) }));
-        S.directorPendingPlace = { kind: 'mannequin', preset: { id: aid, assetId: aid, typeId: t.id, label: (effLang() === 'en' ? t.en : t.zh), h: t.h, w: t.w, d: t.d, color: t.color || '' } };
+        S.directorPendingPlace = { kind: 'mannequin', preset: { id: aid, assetId: aid, typeId: t.id, label: (effLang() === 'zh' ? t.zh : t.en), h: t.h, w: t.w, d: t.d, color: t.color || '' } };
 
         bumpView();
       };
@@ -16585,7 +16855,7 @@ const DIRECTOR_KEY_HELP = [
           }
           else E.directorRenderScene(cv.getContext('2d'), w, h, E.applyPlayhead(directorFilmScene(scene), playT), { selectedId: null });
           const blob = await new Promise((res2, rej) => { try { cv.toBlob((b) => (b ? res2(b) : rej(new Error('blob'))), 'image/png'); } catch (e2) { rej(e2); } });
-          const savedShot = await saveAssetRecord(S.activeId, 'image', blob, { name: T('directorShotName') + ' ' + nowStamp(), prompt: E.compileDirectorPrompt(scene, { zh: effLang() !== 'en' }), source: 'director', category: 'shot', nodeLabel: T('directorTitle') });
+          const savedShot = await saveAssetRecord(S.activeId, 'image', blob, { name: T('directorShotName') + ' ' + nowStamp(), prompt: E.compileDirectorPrompt(scene, { zh: effLang() === 'zh' }), source: 'director', category: 'shot', nodeLabel: T('directorTitle') });
           const center = worldCenter();
           const shotNode = addNodeAt('image', { x: center.x, y: center.y });
           update((st) => {
@@ -16613,14 +16883,20 @@ const DIRECTOR_KEY_HELP = [
         setRecording(true);
         setMsg({ kind: 'ok', text: T('dirRecording') });
         // 分步报错：出错时直接指出是哪一步（否则 "reading 'x'" 查不到出处）
-        const step = (name, fn) => { try { return fn(); } catch (er) { throw new Error('导出视频[' + name + ']: ' + String((er && er.message) || er)); } };
+        const step = (name, fn) => {
+          try { return fn(); }
+          catch (er) {
+            const prefix = effLang() === 'zh' ? '导出视频[' + name + ']: ' : 'Export video [' + name + ']: ';
+            throw new Error(prefix + String((er && er.message) || er));
+          }
+        };
         try {
           const ocv = document.createElement('canvas');
           ocv.width = W; ocv.height = H;
-          const glr = step('创建渲染器', () => E.createDirectorGlRenderer(ocv));
+          const glr = step(effLang() === 'zh' ? '创建渲染器' : 'create renderer', () => E.createDirectorGlRenderer(ocv));
           if (!glr) throw new Error(T('dirEngineFail'));
-          step('调整尺寸', () => glr.resize(W, H, 1));
-          const stream = step('捕获流', () => (ocv.captureStream ? ocv.captureStream(FPS) : null));
+          step(effLang() === 'zh' ? '调整尺寸' : 'resize', () => glr.resize(W, H, 1));
+          const stream = step(effLang() === 'zh' ? '捕获流' : 'capture stream', () => (ocv.captureStream ? ocv.captureStream(FPS) : null));
           if (!stream) throw new Error(T('dirNoCapture'));
           // 优先 MP4（H.264）；浏览器不支持则回退 webm
           const CANDIDATES = ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
@@ -16628,7 +16904,7 @@ const DIRECTOR_KEY_HELP = [
           if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
             for (const m2 of CANDIDATES) { if (MediaRecorder.isTypeSupported(m2)) { mime = m2; break; } }
           }
-          const rec = step('创建录制器', () => new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8e6 }));
+          const rec = step(effLang() === 'zh' ? '创建录制器' : 'create recorder', () => new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8e6 }));
           const chunks = [];
           rec.ondataavailable = (ev2) => { if (ev2.data && ev2.data.size) chunks.push(ev2.data); };
           const stopped = new Promise((res2) => { rec.onstop = res2; });
@@ -16641,7 +16917,7 @@ const DIRECTOR_KEY_HELP = [
             const t2 = i / FPS;
             if (exportCancelRef.current) { try { rec.stop(); } catch { /* 忽略 */ } throw new Error(T('dirExportCancelled')); }
             if (i % 3 === 0) setExportPct(frames > 0 ? i / frames : 0);
-            step('渲染帧' + i, () => glr.draw(E.applyPlayhead(exportScene, t2), { selectedId: null, renderGround: true, renderOnly: true }));
+            step((effLang() === 'zh' ? '渲染帧' : 'render frame ') + i, () => glr.draw(E.applyPlayhead(exportScene, t2), { selectedId: null, renderGround: true, renderOnly: true }));
             if (i % 6 === 0) setPlayT(Math.min(t2, total));
             await new Promise((r2) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(r2) : setTimeout(r2, 16)));
           }
@@ -16656,7 +16932,7 @@ const DIRECTOR_KEY_HELP = [
           try {
             saved = await saveAssetRecord(S.activeId, 'video', blob, {
               name: T('dirPrevizName') + ' ' + nowStamp(),
-              prompt: E.compileDirectorPrompt(scene, { zh: effLang() !== 'en' }),
+              prompt: E.compileDirectorPrompt(scene, { zh: effLang() === 'zh' }),
               source: 'director', category: 'shot', nodeLabel: T('directorTitle'),
             });
           } catch (saveErr) {
@@ -17145,6 +17421,28 @@ const DIRECTOR_KEY_HELP = [
         { id: 'geoms', label: T('dirTabGeom'), path: 'M12 3.5 20 8v8l-8 4.5L4 16V8zM4 8l8 4.5L20 8M12 12.5V20.5' },
         { id: 'cams', label: T('dirTabCams'), path: 'M4 8.5h9v7H4zM13 11l6-2.5v7L13 13' },
       ];
+      function localizeModelLabel(label) {
+        if (!label || effLang() === 'zh') return label;
+        return String(label)
+          .replace('关节人偶 · 士兵', 'Mannequin · Soldier')
+          .replace('关节人偶 · X', 'Mannequin · X')
+          .replace('白模 · 简人', 'Whitebox · Figure')
+          .replace('宇航员 · Explorer', 'Astronaut · Explorer')
+          .replace('家具 · 桌子', 'Furniture · Table')
+          .replace('家具 · 椅子', 'Furniture · Chair')
+          .replace('家具 · 长椅', 'Furniture · Bench')
+          .replace('家具 · 双人床', 'Furniture · Double Bed')
+          .replace('家具 · 书柜', 'Furniture · Bookcase')
+          .replace('家具 · 落地灯', 'Furniture · Floor Lamp')
+          .replace('家具 · 电视柜', 'Furniture · TV Cabinet')
+          .replace('家具 · 电视', 'Furniture · TV')
+          .replace('家具 · 吧台', 'Furniture · Kitchen Bar')
+          .replace('家具 · 吧凳', 'Furniture · Bar Stool')
+          .replace('家具 · 地毯', 'Furniture · Rug')
+          .replace(/^家具 · /, 'Furniture · ')
+          .replace(/^树 · /, 'Tree · ')
+          .replace(/^建筑 · /, 'Building · ');
+      }
       const cardBtn = (key, icon, label, onClick, thumbUrl) => h('button', { key, type: 'button', className: 'dshic-dir-card', onClick },
         thumbUrl
           ? h('img', { className: 'dshic-dir-card-img', src: thumbUrl, alt: '', draggable: false })
@@ -17178,8 +17476,8 @@ const DIRECTOR_KEY_HELP = [
         t2.divider ? h('span', { className: 'dshic-dir-toolsep' }) : null,
         h('button', {
           type: 'button', className: cls('dshic-dir-tool', (t2.id === 'snap' ? !!S.directorSnap : S.directorTool === t2.id) && 'is-on'),
-          'data-tool': t2.id, title: (effLang() === 'en' ? t2.en : t2.zh) + (t2.key ? ' · ' + t2.key : ''),
-          'aria-label': effLang() === 'en' ? t2.en : t2.zh,
+          'data-tool': t2.id, title: (effLang() === 'zh' ? t2.zh : t2.en) + (t2.key ? ' · ' + t2.key : ''),
+          'aria-label': effLang() === 'zh' ? t2.zh : t2.en,
           onClick: () => onTool(t2.id),
         },
         h('svg', {
@@ -17308,9 +17606,9 @@ const DIRECTOR_KEY_HELP = [
                     const key2 = 'model:' + m.id;
                     const url = THUMB_CACHE.get(key2) || '';
                     if (!url) requestThumb(m.id, key2, { h: m.height });
-                    return cardBtn('m-' + m.id, '\u2302', m.label, () => addModel(m), url);
+                    return cardBtn('m-' + m.id, '\u2302', localizeModelLabel(m.label), () => addModel(m), url);
                   })()),
-                tab === 'human' && fil((E.MANNEQUIN_TYPES || []).map((t, i) => ({ id: t.id, label: (effLang() === 'en' ? t.en : t.zh), t, i }))).map((it) =>
+                tab === 'human' && fil((E.MANNEQUIN_TYPES || []).map((t, i) => ({ id: t.id, label: (effLang() === 'zh' ? t.zh : (t.en || t.zh)), t, i }))).map((it) =>
                   cardBtn('q-' + it.id, '\u263a', it.label, () => addMannequin(it.t),
                     thumbOf('type:' + it.id, it.t.assetId || 'xbot', { typeId: it.id, h: it.t.h }))),
                 tab === 'geoms' && fil(lists.geoms).map((p) => {
@@ -17399,7 +17697,7 @@ const DIRECTOR_KEY_HELP = [
                   isRenderMode ? null : isRenderMode ? null : h('div', { className: 'dshic-dir-pill dshic-dir-pill-r', 'data-action': 'dir-reset-view', onClick: () => { pushUndo(); const n = JSON.parse(JSON.stringify(scene)); E.resetView(n); E.saveStageDoc(S.activeId, n); S.directorCamFollow = false; setScene(n); bumpView(); } }, T('dirResetView')),
                 ),
                 S.directorKeysOpen ? h('div', { className: 'dshic-dir-keys', 'data-action': 'dir-keys' },
-                  DIRECTOR_KEY_HELP.map((row) => h('div', { key: row.k, className: 'dshic-dir-keys-row' }, row.k + '  ' + (effLang() === 'en' ? row.en : row.zh)))) : null,
+                  DIRECTOR_KEY_HELP.map((row) => h('div', { key: row.k, className: 'dshic-dir-keys-row' }, row.k + '  ' + (effLang() === 'zh' ? row.zh : row.en)))) : null,
                 labels.map((lb) => h('div', { key: lb.id, className: 'dshic-dir-objlabel', style: { left: lb.x + 'px', top: lb.y + 'px' } }, lb.label)),
                 showAxis ? h('div', { className: 'dshic-dir-axisind' },
                   h('span', { className: 'ax-x' }, 'X'), h('span', { className: 'ax-y' }, 'Y'), h('span', { className: 'ax-z' }, 'Z')) : null)),
@@ -17445,7 +17743,7 @@ const DIRECTOR_KEY_HELP = [
               h('div', { className: 'dshic-dir-props' },
                 ...(previzMode === 'render' ? [
                 envRow(T('dirEnvPreset'), h('select', { className: 'dshic-dir-input', value: String((scene.env || {}).preset || 'studio'), onChange: (e2) => patch((n) => { E.applyEnvPreset(n, e2.target.value); }) },
-                  E.ENV_PRESETS.map((p) => h('option', { key: p.id, value: p.id }, effLang() === 'en' ? p.en : p.zh)))),
+                  E.ENV_PRESETS.map((p) => h('option', { key: p.id, value: p.id }, effLang() === 'zh' ? p.zh : p.en)))),
                 envRow(T('dirBg'), h('input', { className: 'dshic-dir-color', type: 'color', value: String((scene.env || {}).bg || '#171717'), onChange: (e2) => patch((n) => { n.env.bg = e2.target.value; }) })),
 
                 envRow(T('dirGrid'), h('input', { type: 'checkbox', checked: (scene.env || {}).grid !== false, onChange: (e2) => patch((n) => { n.env.grid = e2.target.checked; }) })),
@@ -17559,7 +17857,7 @@ const DIRECTOR_KEY_HELP = [
                     className: 'dshic-dir-input', value: 'pose:' + String(sel.poseId || 'none'),
                     'data-action': 'dir-pose-select',
                     onChange: (e2) => patch((n) => { const v = String(e2.target.value || '').slice(5); const t2 = n.objects.find((x) => x.id === sel.id); if (t2) { t2.poseId = v === 'none' ? null : v; if (t2.poseId) t2.bonePose = {}; } }),
-                  }, (E.BONE_POSES || []).map((p) => h('option', { key: 'pose:' + p.id, value: 'pose:' + p.id }, (effLang() === 'en' ? p.en : p.zh) || p.id))));
+                  }, (E.BONE_POSES || []).map((p) => h('option', { key: 'pose:' + p.id, value: 'pose:' + p.id }, (effLang() === 'zh' ? p.zh : p.en) || p.id))));
                   return [
                     h('div', { className: 'dshic-dir-subhead' }, T('dirAction')),
                     actionSelect,
@@ -18031,7 +18329,7 @@ const DIRECTOR_KEY_HELP = [
                       const cur = n.cameras.find((c) => c.id === n.activeCameraId) || n.cameras[0];
                       const id = 'cam_' + Date.now().toString(36);
                       const copy = JSON.parse(JSON.stringify(cur || { pos: { x: 0, y: 2, z: 6 }, target: { x: 0, y: 1, z: 0 }, fov: 42, roll: 0 }));
-                      copy.id = id; copy.name = '机位' + (n.cameras.length + 1); copy.keys = [];
+                      copy.id = id; copy.name = (effLang() === 'zh' ? '机位' : 'Camera ') + (n.cameras.length + 1); copy.keys = [];
                       n.cameras.push(copy); n.activeCameraId = id;
                     });
                     setMsg({ kind: 'ok', text: T('dirCamAdded') });
@@ -18097,7 +18395,7 @@ const DIRECTOR_KEY_HELP = [
                 h('div', { className: 'dshic-dir-keyrow' },
                   h('button', { type: 'button', className: 'dshic-dir-mini', 'data-action': 'dir-spec-toggle', onClick: () => setSpecOpen((v) => !v) }, (specOpen ? '▾ ' : '▸ ') + T('dirSpecShow')),
                   h('button', { type: 'button', className: 'dshic-dir-mini', 'data-action': 'dir-spec-copy', onClick: () => { try { const txt = JSON.stringify(ENG.compileStageSpec(scene), null, 2); setSpecText(txt); if (navigator.clipboard) navigator.clipboard.writeText(txt).catch(() => {}); setMsg({ kind: 'ok', text: T('dirSpecCopied') }); } catch (e2) { setMsg({ kind: 'err', text: String(e2 && e2.message || e2) }); } } }, '⧉ ' + T('dirSpecCopy')),
-                  h('button', { type: 'button', className: 'dshic-dir-mini', 'data-action': 'dir-spec-save', onClick: async () => { try { const spec = ENG.compileStageSpec(scene); const r = await hostRpc('directorStageSave', { projectId: S.activeId, spec }); if (r && r.ok) setMsg({ kind: 'ok', text: T('dirSpecSaved') }); else setMsg({ kind: 'err', text: String((r && r.error) || '保存失败') }); } catch (e2) { setMsg({ kind: 'err', text: String(e2 && e2.message || e2) }); } } }, '⇪ ' + T('dirSpecSaveHost'))),
+                  h('button', { type: 'button', className: 'dshic-dir-mini', 'data-action': 'dir-spec-save', onClick: async () => { try { const spec = ENG.compileStageSpec(scene); const r = await hostRpc('directorStageSave', { projectId: S.activeId, spec }); if (r && r.ok) setMsg({ kind: 'ok', text: T('dirSpecSaved') }); else setMsg({ kind: 'err', text: String((r && r.error) || T('dirActionSaveFail')) }); } catch (e2) { setMsg({ kind: 'err', text: String(e2 && e2.message || e2) }); } } }, '⇪ ' + T('dirSpecSaveHost'))),
                 specOpen ? h('textarea', {
                   className: 'dshic-dir-prompt', style: { minHeight: '120px' }, 'data-action': 'dir-spec-text',
                   placeholder: T('dirSpecPlaceholder'),
@@ -18393,7 +18691,7 @@ const DIRECTOR_KEY_HELP = [
             }, Ic('help', 13)),
             h(Btn, {
               key: 'update', 'data-action': 'toolbar-update', disabled: S.updateChecking,
-              title: T('updateBtn') + ((S.updateInfo && S.updateInfo.runningVersion) ? '（当前 v' + S.updateInfo.runningVersion + '）' : ''),
+              title: T('updateBtn') + ((S.updateInfo && S.updateInfo.runningVersion) ? (effLang() === 'zh' ? '（当前 v' : ' (current v') + S.updateInfo.runningVersion + (effLang() === 'zh' ? '）' : ')') : ''),
               onClick: () => { checkUpdate(false).then((info) => { if (info && info.upToDate) toast(T('updateUpToDate') + (info.runningVersion ? ' v' + info.runningVersion : '')); }); },
             }, S.updateChecking ? h('span', { className: 'dshic-spin' }) : ((S.updateInfo && !S.updateInfo.upToDate) ? '⬆' : Ic('download', 13)))),
           h('div', { className: 'dshic-toolbar-sep' }),
@@ -18605,8 +18903,13 @@ const DIRECTOR_KEY_HELP = [
       if (!st) return null;
       const blockers = (st.blockers || []).length;
       const readyText = st.ready ? T('stageReadyYes') : (blockers ? T('stageBlockers') + ' ' + blockers : T('stageReadyNo'));
+      const stageEn = {
+        brief: 'Brief', bible: 'Bible', assets: 'Refs', script: 'Script', storyboard: 'Storyboard',
+        shots_ready: 'Shots Ready', generating: 'Generating', qc: 'QC', post: 'Post', delivered: 'Delivered',
+      };
+      const stageName = effLang() === 'zh' ? (st.stageZh || st.stage) : (stageEn[st.stage] || st.stage || st.stageZh);
       return h('div', { className: 'dshic-hint', 'data-role': 'production-stage', style: { alignSelf: 'flex-start', padding: '2px 2px 0' } },
-        T('stageCurrent') + '：' + (st.stageZh || st.stage) + ' · ' + readyText);
+        T('stageCurrent') + (effLang() === 'zh' ? '：' : ': ') + stageName + ' · ' + readyText);
     }
 
     function ProjectsTab() {
@@ -18666,8 +18969,8 @@ const DIRECTOR_KEY_HELP = [
           // BLK-01 的清理结果必须可见：rmrf 部分失败（Windows 文件锁）时残留在盘上，
           // 同名重建的项目会继承旧 assets.json 条目——用户至少要知道发生过什么。
           const diskErrs = del && del.disk && Array.isArray(del.disk.errors) ? del.disk.errors : [];
-          if (diskErrs.length) toast('项目已删除，但磁盘清理有 ' + diskErrs.length + ' 项失败：' + diskErrs.join('；'));
-        } catch (e) { toast('删除请求失败（本地已移除，刷新后可能复现）：' + String((e && e.message) || e)); }
+          if (diskErrs.length) toast((effLang() === 'zh' ? '项目已删除，但磁盘清理有 ' + diskErrs.length + ' 项失败：' : 'Project deleted, but disk cleanup had ' + diskErrs.length + ' failures: ') + diskErrs.join(effLang() === 'zh' ? '；' : '; '));
+        } catch (e) { toast((effLang() === 'zh' ? '删除请求失败（本地已移除，刷新后可能复现）：' : 'Delete request failed (removed locally, may reappear after refresh): ') + String((e && e.message) || e)); }
         for (const k of doomedCanvasKeys) {
           try { localStorage.removeItem(k); } catch { /* 忽略 */ }
         }
@@ -19451,7 +19754,7 @@ const DIRECTOR_KEY_HELP = [
         // 兜底：Provider 枚举不可用时允许手动填 provider|model
         h('input', {
           className: 'dshic-input', value: current,
-          placeholder: 'provider|model（手动覆盖）',
+          placeholder: effLang() === 'zh' ? 'provider|model（手动覆盖）' : 'provider|model (manual override)',
           onChange: (e) => {
             const [provider, model] = e.target.value.split('|');
             applyTextLlm(provider, model);
@@ -19512,8 +19815,8 @@ const DIRECTOR_KEY_HELP = [
       const nameKey = kind === 'image' ? 'defaultImageCfg' : 'defaultVideoCfg';
       const urlKey = kind === 'image' ? 'baseUrl' : 'url';
       const urlPh = kind === 'image'
-        ? 'https://api.example.com/v1（或完整 /images/generations 端点）'
-        : 'https://api.example.com/v1/video/generations（或裸域 / /v1）';
+        ? (effLang() === 'zh' ? 'https://api.example.com/v1（或完整 /images/generations 端点）' : 'https://api.example.com/v1 (or full /images/generations endpoint)')
+        : (effLang() === 'zh' ? 'https://api.example.com/v1/video/generations（或裸域 / /v1）' : 'https://api.example.com/v1/video/generations (or bare domain / /v1)');
       const persist = (next) => { setS(next); saveSettings(next); };
       const mutate = (fn) => { const next = JSON.parse(JSON.stringify(s)); fn(next); persist(next); };
       const addProvider = () => {
@@ -19573,7 +19876,7 @@ const DIRECTOR_KEY_HELP = [
               h(Field, { key: 'k', label: T('apiKey'), value: p.apiKey || '', onChange: (v) => patchProvider(p.id, 'apiKey', v), placeholder: kind === 'video' ? ((VIDEO_VENDORS[detectVideoVendor(p)] || {}).keyPh || 'sk-…') : 'sk-…', password: true }),
               kind === 'image' ? [
                 h(Field, { key: 'size', label: T('imgSizeOverride'), value: p.size || '', onChange: (v) => patchProvider(p.id, 'size', v), placeholder: T('imgSizePlaceholder') }),
-                h(Field, { key: 'rf', label: T('imgResponseFormat'), value: p.responseFormat || '', onChange: (v) => patchProvider(p.id, 'responseFormat', v), placeholder: 'b64_json / url（留空=API 默认）' }),
+                h(Field, { key: 'rf', label: T('imgResponseFormat'), value: p.responseFormat || '', onChange: (v) => patchProvider(p.id, 'responseFormat', v), placeholder: effLang() === 'zh' ? 'b64_json / url（留空=API 默认）' : 'b64_json / url (blank = API default)' }),
                 h('div', { key: 'mode', className: 'dshic-field' },
                   h('span', { className: 'dshic-field-label' }, T('imgMode')),
                   h('select', { className: 'dshic-select', value: p.mode || 'generations', onChange: (e) => patchProvider(p.id, 'mode', e.target.value), onPointerDown: (e) => e.stopPropagation() },
@@ -19582,7 +19885,7 @@ const DIRECTOR_KEY_HELP = [
                     h('option', { value: 'compshare' }, T('modeCompshare')),
                     h('option', { value: 'sanbao' }, T('modeSanbao')))),
               ] : [
-                (detectVideoVendor(p) === 'openai' || detectVideoVendor(p) === 'seedance') ? h(Field, { key: 'of', label: T('vidOutFormat'), value: p.outputFormat || '', onChange: (v) => patchProvider(p.id, 'outputFormat', v), placeholder: 'mp4（留空不发送）' }) : null,
+                (detectVideoVendor(p) === 'openai' || detectVideoVendor(p) === 'seedance') ? h(Field, { key: 'of', label: T('vidOutFormat'), value: p.outputFormat || '', onChange: (v) => patchProvider(p.id, 'outputFormat', v), placeholder: effLang() === 'zh' ? 'mp4（留空不发送）' : 'mp4 (leave blank to omit)' }) : null,
                 (detectVideoVendor(p) === 'openai' || detectVideoVendor(p) === 'seedance') ? h('label', { key: 'ga', className: 'dshic-row', style: { gap: 6, fontSize: 11 } },
                   h('input', { type: 'checkbox', checked: p.generateAudio === true, onChange: (e) => patchProvider(p.id, 'generateAudio', e.target.checked), onPointerDown: (e) => e.stopPropagation() }),
                   h('span', {}, T('vidAudioOpt'))) : null,
@@ -19703,7 +20006,7 @@ const DIRECTOR_KEY_HELP = [
                 ? h(Field, { key: 'size', label: T('imgSizeOverride'), value: cfg.size || '', onChange: (v) => patch(cfg.id, 'size', v), placeholder: T('imgSizePlaceholder') })
                 : null,
               kind === 'image'
-                ? h(Field, { key: 'rf', label: T('imgResponseFormat'), value: cfg.responseFormat || '', onChange: (v) => patch(cfg.id, 'responseFormat', v), placeholder: 'b64_json / url（留空=API 默认）' })
+                ? h(Field, { key: 'rf', label: T('imgResponseFormat'), value: cfg.responseFormat || '', onChange: (v) => patch(cfg.id, 'responseFormat', v), placeholder: effLang() === 'zh' ? 'b64_json / url（留空=API 默认）' : 'b64_json / url (blank = API default)' })
                 : null,
               kind === 'image'
                 ? h('div', { key: 'mode', className: 'dshic-field' },
@@ -19738,7 +20041,7 @@ const DIRECTOR_KEY_HELP = [
                     h('span', {}, T('vidAudioOpt')))
                 : null,
               kind === 'video'
-                ? h(Field, { key: 'of', label: T('vidOutFormat'), value: cfg.outputFormat || '', onChange: (v) => patch(cfg.id, 'outputFormat', v), placeholder: 'mp4（留空不发送）' })
+                ? h(Field, { key: 'of', label: T('vidOutFormat'), value: cfg.outputFormat || '', onChange: (v) => patch(cfg.id, 'outputFormat', v), placeholder: effLang() === 'zh' ? 'mp4（留空不发送）' : 'mp4 (leave blank to omit)' })
                 : null,
               kind === 'video' && cfg.protocol === 'seedance'
                 ? h('label', { key: 'wm', className: 'dshic-row', style: { gap: 6, fontSize: 11 } },
@@ -19962,7 +20265,7 @@ const DIRECTOR_KEY_HELP = [
         const db = Math.max(0, Number(stats.dbBytes) || 0) / 1048576;
         const wal = Math.max(0, Number(stats.walBytes) || 0) / 1048576;
         return [
-          'SQLite' + (stats.dbExists ? '（' + db.toFixed(2) + ' MB' + (wal > 0 ? ' + WAL ' + wal.toFixed(2) + ' MB' : '') + '）' : '（未创建）'),
+          'SQLite' + (stats.dbExists ? ' (' + db.toFixed(2) + ' MB' + (wal > 0 ? ' + WAL ' + wal.toFixed(2) + ' MB' : '') + ')' : (effLang() === 'zh' ? '（未创建）' : ' (not created)')),
           (Number(stats.projects) || 0) + ' ' + T('storageProjects') + ' · ' + (Number(stats.assets) || 0) + ' ' + T('storageAssets') + ' · ' + T('storageSearch') + ' ' + (stats.fts || '-'),
           ...(stats.dbPath ? [T('storageDbFile') + '：' + stats.dbPath] : []),
         ];
@@ -19996,12 +20299,12 @@ const DIRECTOR_KEY_HELP = [
           const same = S.dataRoot && val.trim() && S.dataRoot === val.trim().replace(/[\\/]+$/, '');
           await hostRpc('dataRootSet', { root: val.trim() });
           await refreshDataRoot();
-          toast(T('dataRootSaved') + (S.dataRoot ? '：' + S.dataRoot : ''));
+          toast(T('dataRootSaved') + (S.dataRoot ? (effLang() === 'zh' ? '：' : ': ') + S.dataRoot : ''));
           if (same) { setBusy(false); return; } // 同目录重复保存：不重复迁移
           migrateLegacyAssets('data-root'); // 换了目录：一次性迁移旧 blob（v1 旧布局由 Host 侧自动迁移）
           assetMem.clear();
           update((s) => { s.assetsTick++; });
-        } catch (e) { toast('设置失败：' + ((e && e.message) || e)); }
+        } catch (e) { toast((effLang() === 'zh' ? '设置失败：' : 'Setting failed: ') + ((e && e.message) || e)); }
         setBusy(false);
       };
       const applyRoot = async (root) => {
@@ -20009,7 +20312,7 @@ const DIRECTOR_KEY_HELP = [
         await hostRpc('dataRootSet', { root });
         await refreshDataRoot();
         setVal(S.dataRoot || root);
-        toast(T('dataRootSaved') + '：' + S.dataRoot);
+        toast(T('dataRootSaved') + (effLang() === 'zh' ? '：' : ': ') + S.dataRoot);
         if (same) return; // 同目录：不重复迁移
         migrateLegacyAssets('data-root'); // 换了目录：一次性迁移旧 blob
         assetMem.clear();
@@ -20025,7 +20328,7 @@ const DIRECTOR_KEY_HELP = [
           // cancelled → 静默
         } catch (e) {
           const msg = String((e && e.message) || e);
-          toast(/未知操作/.test(msg) ? T('dataRootUnsupported') : '目录选择失败：' + msg);
+          toast(/未知操作/.test(msg) ? T('dataRootUnsupported') : (effLang() === 'zh' ? '目录选择失败：' : 'Folder selection failed: ') + msg);
         }
         setPicking(false); setBusy(false);
       };
@@ -20054,7 +20357,7 @@ const DIRECTOR_KEY_HELP = [
           // 项目文档 Host 侧已合并：立即拉一轮同步，把新项目带进画布
           try { await hostSyncTick(); } catch { /* 下一轮 3s 轮询会带 */ }
           await refreshDataRoot();
-        } catch (e) { toast('导入失败：' + ((e && e.message) || e)); }
+        } catch (e) { toast((effLang() === 'zh' ? '导入失败：' : 'Import failed: ') + ((e && e.message) || e)); }
         setBusy(false);
       };
       return h('div', { key: 'dataroot', className: 'dshic-card' },
@@ -20237,7 +20540,7 @@ const DIRECTOR_KEY_HELP = [
     /** 从项目现有创作意图/剧本一键起草设定集（世界观/风格/角色/场景/道具）。 */
     async function aiDraftBible(cur) {
       const settings = loadSettings();
-      const zh = effLang() !== 'en';
+      const zh = effLang() === 'zh';
       const ideas = Object.values(S.graph.nodes || {})
         .filter((n) => n && (n.type === 'script' || n.type === 'text'))
         .map((n) => String((n.type === 'script' ? n.data.idea : n.data.text) || '').trim())
@@ -20313,7 +20616,7 @@ const DIRECTOR_KEY_HELP = [
           }
         }
         if (models.length) {
-          list.unshift({ id: 'image-gen-bridge', name: '桥接dsh-image-gen', baseUrl: '', apiKey: '', viaImageGen: true, models });
+          list.unshift({ id: 'image-gen-bridge', name: effLang() === 'zh' ? '桥接dsh-image-gen' : 'Bridge dsh-image-gen', baseUrl: '', apiKey: '', viaImageGen: true, models });
         }
         const noChange = JSON.stringify(s0.imageProviders || []) === JSON.stringify(list);
         if (!noChange) { s0.imageProviders = list; saveSettings(s0); }
@@ -20395,8 +20698,9 @@ const DIRECTOR_KEY_HELP = [
             onPointerDown: (e) => e.stopPropagation(),
           },
             h('option', { value: '' }, T('langFollow')),
-            h('option', { value: 'zh' }, T('langZh')),
-            h('option', { value: 'en' }, T('langEn'))),
+            ...dshAvailableLocales().map((loc) =>
+              h('option', { key: loc.id, value: loc.id }, loc.label)
+            )),
         ),
         h(DataRootCard, { key: 'dataroot' }),
         h(CraftCard, { key: 'craft' }),
@@ -20790,6 +21094,272 @@ const DIRECTOR_KEY_HELP = [
       'guy_ritchie': ['M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3', 'M4 8h16M4 12h11M4 16h16M17 11v4'],
     };
 
+    const SKILL_NAMES_EN = {
+      // 45 Lenses (Directors)
+      'bi_gan': 'Bi Gan',
+      'hou_hsiao_hsien': 'Hou Hsiao-hsien',
+      'lu_yang': 'Lu Yang',
+      'tsui_hark': 'Tsui Hark',
+      'wong_kar_wai': 'Wong Kar-wai',
+      'wu_ershan': 'Wuershan',
+      'yuen_woo_ping': 'Yuen Woo-ping',
+      'zhang_yimou': 'Zhang Yimou',
+      'ang_lee': 'Ang Lee',
+      'edward_yang': 'Edward Yang',
+      'jia_zhangke': 'Jia Zhangke',
+      'jiang_wen': 'Jiang Wen',
+      'johnnie_to': 'Johnnie To',
+      'ning_hao': 'Ning Hao',
+      'stephen_chow': 'Stephen Chow',
+      'wong_jing': 'Wong Jing',
+      'kurosawa': 'Akira Kurosawa',
+      'park_chan_wook': 'Park Chan-wook',
+      'bong_joon_ho': 'Bong Joon-ho',
+      'koreeda_hirokazu': 'Hirokazu Kore-eda',
+      'lee_chang_dong': 'Lee Chang-dong',
+      'miyazaki_hayao': 'Hayao Miyazaki',
+      'shinkai_makoto': 'Makoto Shinkai',
+      'bergman': 'Ingmar Bergman',
+      'coen_brothers': 'Coen Brothers',
+      'fellini': 'Federico Fellini',
+      'fincher': 'David Fincher',
+      'hitchcock': 'Alfred Hitchcock',
+      'kubrick': 'Stanley Kubrick',
+      'malick': 'Terrence Malick',
+      'michael_mann': 'Michael Mann',
+      'nolan': 'Christopher Nolan',
+      'refn': 'Nicolas Winding Refn',
+      'scorsese': 'Martin Scorsese',
+      'spielberg': 'Steven Spielberg',
+      'tarkovsky': 'Andrei Tarkovsky',
+      'villeneuve': 'Denis Villeneuve',
+      'ridley_scott': 'Ridley Scott',
+      'david_lynch': 'David Lynch',
+      'alfonso_cuaron': 'Alfonso Cuarón',
+      'alejandro_inarritu': 'Alejandro G. Iñárritu',
+      'wes_anderson': 'Wes Anderson',
+      'george_miller': 'George Miller',
+      'pedro_almodovar': 'Pedro Almodóvar',
+      'guy_ritchie': 'Guy Ritchie',
+
+      // 8 Forms
+      'short-drama': 'Short Drama',
+      'cinematic': 'Cinematic Film',
+      'commercial': 'Commercial / Ad',
+      'documentary': 'Documentary',
+      'music-video': 'Music Video',
+      'trailer': 'Trailer',
+      'explainer': 'Video Essay',
+      'interview': 'Interview',
+
+      // 15 Looks
+      'anime-thick-paint': '2D Impasto',
+      'dark-myth-cg': 'Dark Myth CG',
+      'east-epic-3d': 'Eastern Myth 3D',
+      'ghibli-watercolor': 'Ghibli Watercolor',
+      'guoman-3d-ink': '3D Ink Wash',
+      'guoman-3d-xianxia': '3D Xianxia',
+      'hk-retro-film': 'HK Retro Film',
+      'realistic-cinema': 'Realistic Cinema',
+      'shinkai-light': 'Shinkai Light',
+      'cold-noir': 'Cold Noir',
+      'earth-warmth': 'Earth Warmth',
+      'minimal-grey': 'Minimal Cold Grey',
+      'baroque-rich': 'Baroque Rich',
+      'saturated-epic': 'Saturated Epic',
+      'soft-romance': 'Soft Romance',
+
+      // 10 Industries
+      'auto': 'Automotive',
+      'education': 'Education',
+      'fashion-beauty': 'Beauty & Fashion',
+      'finance': 'Finance',
+      'fmcg': 'FMCG',
+      'food': 'Food & Dining',
+      'medical': 'Healthcare',
+      'realestate': 'Real Estate',
+      'tech': 'Technology',
+      'travel': 'Travel & Tourism',
+
+      // 37 Genres
+      'action-mission': 'Action Mission',
+      'adventure': 'Adventure',
+      'broken-mirror-reunion': 'Reconciliation',
+      'counterattack': 'Underdog Comeback',
+      'crime-police': 'Crime & Police',
+      'family-relation': 'Family Drama',
+      'fantasy': 'Fantasy',
+      'shanhaijing-myth': 'Myth & Legend',
+      'hk-retro': 'HK Retro',
+      'identity-swap': 'Identity Swap',
+      'modern-urban': 'Modern Urban',
+      'parent-child-secret': 'Family Secret',
+      'period-power-struggle': 'Historical Intrigue',
+      'rebirth-transmigration': 'Rebirth & Time Travel',
+      'revenge-face-slap': 'Vengeance',
+      'slice-of-life': 'Slice of Life',
+      'suspense-rule': 'Suspense & Rules',
+      'system-flow': 'System Progression',
+      'wealthy-romance': 'Elite Romance',
+      'workplace-comedy': 'Workplace Comedy',
+      'wuxia': 'Wuxia Martial Arts',
+      'xianxia-cultivation': 'Xianxia Cultivation',
+      'gambling-den': 'High-Stakes Gamble',
+      'gunstandoff': 'Standoff Crisis',
+      'multi-thread-caper': 'Multi-Thread Caper',
+      'mo-lei-tau': 'Nonsense Comedy',
+      'absurd-parable': 'Absurd Parable',
+      'county-drift': 'Provincial Drift',
+      'class-vertical': 'Class Divide',
+      'youth-distance': 'Nostalgic Youth',
+      'wasteland-chase': 'Wasteland Pursuit',
+      'smalltown-uncanny': 'Small Town Uncanny',
+      'family-melodrama': 'Family Melodrama',
+      'institutional-eccentric': 'Eccentric Institution',
+      'neon-dystopia': 'Neon Dystopia',
+      'survival-fate': 'Survival & Fate',
+      'social-traverse': 'Social Panorama'
+    };
+
+    const SKILL_ONELINERS_EN = {
+      // Lenses
+      'bi_gan': 'Camera wanders like a half-awake dream drifting along a real road',
+      'hou_hsiao_hsien': 'Camera arrives early, sitting outside the doorway as life unfolds in full',
+      'lu_yang': 'Cold slate gray with candlelight; tight alleys force lethal close-quarters blades',
+      'tsui_hark': 'Hard light, thick smoke, low knee-height camera angles, and 120fps slow-motion',
+      'wong_kar_wai': 'Too close, partially obscured, and a beat too late — the exact shape of human ties',
+      'wu_ershan': 'A monumental form towering overhead while fire silhouettes human figures',
+      'yuen_woo_ping': 'Camera framed to show grounded footwork; impacts land with rigid physical force',
+      'zhang_yimou': 'Decide the dominant color of the scene first, then place figures within it',
+      'ang_lee': 'Polite distance, holding half a second longer after a line on unspoken emotions',
+      'edward_yang': 'Angled camera peeking past door frames; audience calculates spatial positioning',
+      'jia_zhangke': 'Across the street watching ordinary lives through passing trucks and silent endurance',
+      'jiang_wen': 'Low knee-height camera facing the blazing sun, waiting for lines to detonate',
+      'johnnie_to': 'Distance staging figures like chess pieces while gunshots echo off-screen',
+      'ning_hao': 'Small mishaps splitting into three colliding storylines with chapter cards',
+      'stephen_chow': '18mm wide-angle exaggerating tragedy into absurd, unexpected comedic resilience',
+      'wong_jing': 'Frontal close-ups of gambling tables and star faces delivering rapid punches',
+      'kurosawa': 'Telephoto lens compressing battalions; rain and wind wearing down human endurance',
+      'park_chan_wook': 'Intricate patterns, impossible camera maneuvers, and polite, surgical violence',
+      'bong_joon_ho': 'Camera diligently climbing stairs where vertical elevation marks social class',
+      'koreeda_hirokazu': 'Child-eye level observing crowded rooms with ambient domestic sounds',
+      'lee_chang_dong': 'Locked-off camera watching characters walk to exhaustion, ending in silent reflection',
+      'miyazaki_hayao': 'Wind pressing grass down before flight takes off with grounded weight',
+      'shinkai_makoto': 'Vast skies, dazzling lens flares, and reflections carrying yearning across distances',
+      'bergman': 'Unflinching frontal portraiture holding on human faces without cutting away',
+      'coen_brothers': 'Meticulous symmetry with deadpan commitment held an extra beat',
+      'fellini': 'Carnivalesque grotesquery rooted in real bodies, eccentric costumes, and posture',
+      'fincher': 'Telephoto extraction watching subjects from positions they cannot perceive',
+      'hitchcock': 'Revealing secrets to the audience first, then watching characters step in',
+      'kubrick': 'One-point perspective and geometric dominance reducing human figures to pawns',
+      'malick': 'Floating camera brushing past hands with the golden sun setting behind horizon',
+      'michael_mann': 'Cold neon grid of the night city with a consummate professional alone against it',
+      'nolan': 'Structured rules converging multiple timelines toward a single ticking climax',
+      'refn': 'Locked center frame, total stillness, letting saturated neon colors perform the ritual',
+      'scorsese': 'Kinetic camera driven by primal ambition, rising with rock and falling in silence',
+      'spielberg': 'First the face in wonder, then revealing the magnificent spectacle',
+      'tarkovsky': 'Static gaze letting water, fire, and temporal flow conduct human destiny',
+      'villeneuve': 'Scaling human scale down to five percent of massive brutalist architecture',
+      'ridley_scott': 'Atmospheric density with rain, smoke, and practical architectural scale',
+      'david_lynch': 'Sound preceding image, ominous lighting, and subconscious dream logic',
+      'alfonso_cuaron': 'Fluid extended sequence shot moving across social architecture without cutting',
+      'alejandro_inarritu': 'Visceral handheld following inches behind characters under relentless sun',
+      'wes_anderson': 'Immaculate center-weighted symmetry and deadpan theatrical staging',
+      'george_miller': 'Center-weighted kinetic fury barrelling forward through orange and teal fury',
+      'pedro_almodovar': 'Saturated vibrant reds and domestic candor amidst family revelations',
+      'guy_ritchie': 'Rapid voiceover exposition, freeze-frames, and overlapping criminal deceptions',
+
+      // Forms
+      'short-drama': '60-180s self-contained episodes with 10s hooks filmed to cinematic standards',
+      'cinematic': 'Motivated lighting, authentic textures, and depth of field',
+      'commercial': 'A single clear value proposition backed by visible evidence',
+      'documentary': 'Truth over polish with authentic location sound and genuine observation',
+      'music-video': 'Rhythm paced by BPM beats with intentional dramatic pauses',
+      'trailer': 'Setup, escalating tension, climactic bursts, withholding resolution',
+      'explainer': 'Concise pacing with 4.5-6.5 syllables/sec visual synchronization',
+      'interview': 'ASL 8-20s capturing authentic hesitation, pauses, and speech cadence',
+
+      // Looks
+      'anime-thick-paint': 'Opaque layered pigment impasto with rich brush textures',
+      'dark-myth-cg': 'High-precision PBR textures, battle-worn leather, and rim lighting',
+      'east-epic-3d': 'Stylized rendering with jade translucency and embroidered gold accents',
+      'ghibli-watercolor': 'Watercolor storybook backdrops paired with cel-shaded figures',
+      'guoman-3d-ink': '3D anatomical forms with rice paper grain and dry-brush outlines',
+      'guoman-3d-xianxia': 'PBR flowing silks, translucent jade, volumetric fog, and god rays',
+      'hk-retro-film': '500T grain, neon spill, halation, and analog film texture',
+      'realistic-cinema': 'Natural digital capture with restrained contrast and true skin tones',
+      'shinkai-light': 'High-saturation sky gradients, prism flares, and glass reflections',
+      'cold-noir': 'Cold cyan-slate base with sodium-vapor amber accents and readable shadows',
+      'earth-warmth': 'Clay, wheat, and terracotta tones with soft natural ambient diffusion',
+      'minimal-grey': 'Subdued desaturated greys and muted architectural palette',
+      'baroque-rich': 'Oil painting depth with old gold, deep crimson, and directional Rembrandt light',
+      'saturated-epic': 'Saturated cobalt and amber clashes amidst dust and blazing spectacles',
+      'soft-romance': 'Milky alabaster and pastel haze with dreamlike halation glow',
+
+      // Industries
+      'auto': 'Clearcoat gloss with soft reflected specular gradients',
+      'education': 'Pencil lead directional sheen on textured tactile paper',
+      'fashion-beauty': 'Raking side light revealing fine natural skin micro-texture',
+      'finance': 'Intaglio engraving relief on crisp security-grade paper',
+      'fmcg': 'Shelf alignment with subtle packaging angles and real-world variance',
+      'food': 'Sizzling oil surface folds reflecting glimmers of aromatic ingredients',
+      'medical': 'Overlapping surgical light rings with soft surgical steel transitions',
+      'realestate': 'Subtle roller stipple on smooth interior architectural surfaces',
+      'tech': 'Crisp 0.5mm specular highlights along matte anodized aluminum chamfers',
+      'travel': 'Worn stone staircase patina with polished tread contours',
+
+      // Genres
+      'action-mission': 'Executing a mandatory goal against escalating constraints',
+      'adventure': 'Ticking clock, uncharted routes, and counting points of no return',
+      'broken-mirror-reunion': 'Piecing fractured intimacy back together detail by detail',
+      'counterattack': 'Underestimated underdogs proving their worth in high-stakes arenas',
+      'crime-police': 'Watching a planned exchange decay into survival and moral choices',
+      'family-relation': 'Care and vulnerability intertwined between closely bound kin',
+      'fantasy': 'Consistent magical currencies where every power has tangible cost',
+      'shanhaijing-myth': 'Ancient mythical beings obeying primal cosmic orders',
+      'hk-retro': 'Enforcing honor and collecting debts in a rapidly transforming city',
+      'identity-swap': 'Forced into unfamiliar roles while pursuing critical missions',
+      'modern-urban': 'Navigating societal demands and carving out dignity in the metropolis',
+      'parent-child-secret': 'Hidden kinship revelations reshaping adult relationships',
+      'period-power-struggle': 'Navigating court intrigue and turning imperial codes into leverage',
+      'rebirth-transmigration': 'Armed with hard lessons from the past to rewrite pivotal moments',
+      'revenge-face-slap': 'Reclaiming agency against corrupt hierarchies step by step',
+      'slice-of-life': 'Gentle devotion to humble crafts, quiet waits, and simple bonds',
+      'suspense-rule': 'Betting with incomplete information and enduring the consequences',
+      'system-flow': 'Earning systematic milestones as skeptics are proven wrong',
+      'wealthy-romance': 'Negotiating power dynamics, intimacy, and autonomy in elite circles',
+      'workplace-comedy': 'Demonstrating indisputable competence against corporate absurdity',
+      'wuxia': 'Navigating martial codes and state law with sharp swordplay and honor',
+      'xianxia-cultivation': 'Cultivating metaphysical mastery to resolve mortal dilemmas',
+      'gambling-den': 'Flipping hopeless odds through psychological reads and calculated calls',
+      'gunstandoff': 'Spatial tension where the first to flinch triggers total collapse',
+      'multi-thread-caper': 'Converging disparate plots colliding over shared contraband',
+      'mo-lei-tau': 'Subverting despair through eccentric, deadpan Cantonese wit',
+      'absurd-parable': 'Utter seriousness dedicated to a wonderfully bizarre premise',
+      'county-drift': 'Provincial towns shifting before residents can comprehend the change',
+      'class-vertical': 'Shared architecture starkly divided by spatial elevation',
+      'youth-distance': 'Bittersweet separation bridging unspoken teenage yearning',
+      'wasteland-chase': 'High-velocity pursuits across post-apocalyptic desolate horizons',
+      'smalltown-uncanny': 'Familiar settings subtly displaced into eerie unease',
+      'family-melodrama': 'Unspoken home truths aired amidst routine domestic labor',
+      'institutional-eccentric': 'Devotion to obsolete rules inside idiosyncratic organizations',
+      'neon-dystopia': 'Solving intimate human dilemmas within overpowering systems',
+      'survival-fate': 'Human physical fortitude tested against relentless elements',
+      'social-traverse': 'Moving across social strata without truly belonging to any'
+    };
+
+    function skillItemDisplayName(it) {
+      if (!it) return '';
+      if (effLang() === 'zh') return it.name || it.id || '';
+      return it.name_en || SKILL_NAMES_EN[it.id] || it.name || it.id || '';
+    }
+
+    function skillItemDisplayOneliner(it) {
+      if (!it) return '';
+      if (effLang() === 'zh') return it.oneliner || '';
+      return it.oneliner_en || SKILL_ONELINERS_EN[it.id] || it.oneliner || '';
+    }
+
     /** 渲染一个瓦片图标（24 网格，currentColor 描边）。 */
     function SkillGlyph(props) {
       const id = (props && props.id) || '';
@@ -20818,17 +21388,19 @@ const DIRECTOR_KEY_HELP = [
         items.map((it) => {
           const on = sel.has(it.id);
           const off = it.available === false;
+          const dispName = skillItemDisplayName(it);
+          const dispOne = skillItemDisplayOneliner(it);
           return h('button', {
             key: it.id, type: 'button',
             className: cls('dshic-skill-tile', on && 'is-on', off && 'is-off'),
             'data-kind': kind, 'data-id': it.id, 'data-on': on ? '1' : '0',
-            title: (it.name || it.id) + (it.oneliner ? ' —— ' + it.oneliner : '') + (off ? T('skillItemMissing') : ''),
+            title: dispName + (dispOne ? ' —— ' + dispOne : '') + (off ? T('skillItemMissing') : ''),
             disabled: off,
             onPointerDown: (e) => e.stopPropagation(),
             onClick: () => { if (!off) onPick(it.id); },
           },
           h(SkillGlyph, { id: it.glyph || it.id, size: 22 }),
-          h('span', { className: 'dshic-skill-tile-label' }, it.name || it.id));
+          h('span', { className: 'dshic-skill-tile-label' }, dispName));
         }));
     }
 
@@ -20919,12 +21491,19 @@ const DIRECTOR_KEY_HELP = [
       const genreItems = m[genreLayer] || [];
 
       const lensGroups = ['all', '华语', '日韩', '欧美'];
+      const lensGroupLabel = (g) => {
+        if (g === 'all') return T('skillAll');
+        if (g === '华语') return T('groupChinese');
+        if (g === '日韩') return T('groupEastAsian');
+        if (g === '欧美') return T('groupWestern');
+        return g;
+      };
       const lensItems = (m.lenses || []).filter((x) => gfilter === 'all' || x.group === gfilter);
 
       const summary = [
-        profile.lens ? ((m.lenses || []).find((x) => x.id === profile.lens) || {}).name : '',
-        profile.genres.length ? profile.genres.map((g) => ((m.genres || []).find((x) => x.id === g) || (m.industries || []).find((x) => x.id === g) || {}).name || g).join('+') : '',
-        formEntry ? formEntry.name : '',
+        profile.lens ? skillItemDisplayName((m.lenses || []).find((x) => x.id === profile.lens) || { id: profile.lens }) : '',
+        profile.genres.length ? profile.genres.map((g) => skillItemDisplayName((m.genres || []).find((x) => x.id === g) || (m.industries || []).find((x) => x.id === g) || { id: g })).join(' + ') : '',
+        formEntry ? skillItemDisplayName(formEntry) : '',
       ].filter(Boolean).join(' · ') || T('skillNoneSelected');
 
       const doPreview = async (kind) => {
@@ -20939,21 +21518,23 @@ const DIRECTOR_KEY_HELP = [
       const doWriteBible = () => {
         const bible = loadBible(S.activeId);
         const bits = [];
+        const isZh = effLang() === 'zh';
         if (profile.lens) {
           const le = (m.lenses || []).find((x) => x.id === profile.lens);
-          if (le) bits.push('导演风格：' + le.name + (le.oneliner ? '（' + le.oneliner + '）' : ''));
+          if (le) bits.push((isZh ? '导演风格：' : 'Director Style: ') + skillItemDisplayName(le) + (skillItemDisplayOneliner(le) ? (isZh ? '（' : ' (') + skillItemDisplayOneliner(le) + (isZh ? '）' : ')') : ''));
         }
         if (profile.genres.length) {
-          const names = profile.genres.map((g) => ((m.genres || []).find((x) => x.id === g) || (m.industries || []).find((x) => x.id === g) || {}).name || g);
-          bits.push('题材：' + names.join('、'));
+          const names = profile.genres.map((g) => skillItemDisplayName((m.genres || []).find((x) => x.id === g) || (m.industries || []).find((x) => x.id === g) || { id: g }));
+          bits.push((isZh ? '题材：' : 'Genre: ') + names.join(isZh ? '、' : ', '));
         }
-        if (formEntry) bits.push('规格：' + formEntry.name);
+        if (formEntry) bits.push((isZh ? '规格：' : 'Format: ') + skillItemDisplayName(formEntry));
         if (profile.look) {
           const lo = (m.looks || []).find((x) => x.id === profile.look);
-          if (lo) bits.push('影调：' + lo.name);
+          if (lo) bits.push((isZh ? '影调：' : 'Look: ') + skillItemDisplayName(lo));
         }
         if (!bits.length) { toast(T('skillNoneSelected')); return; }
-        const merged = [String(bible.style || '').trim(), bits.join('；')].filter(Boolean).join('；');
+        const sep = isZh ? '；' : '; ';
+        const merged = [String(bible.style || '').trim(), bits.join(sep)].filter(Boolean).join(sep);
         saveBible(S.activeId, { ...bible, style: merged });
         toast(T('skillWroteBible'));
         setTick((x) => x + 1);
@@ -20970,11 +21551,11 @@ const DIRECTOR_KEY_HELP = [
         // ── L1 导演透镜 ──
         h(SkillCard, {
           key: 'lens', id: 'lens', icon: 'camera', title: T('skillDirector'),
-          summary: (m.lenses || []).find((x) => x.id === profile.lens) ? (m.lenses || []).find((x) => x.id === profile.lens).name : T('skillUnselected'),
+          summary: (m.lenses || []).find((x) => x.id === profile.lens) ? skillItemDisplayName((m.lenses || []).find((x) => x.id === profile.lens)) : T('skillUnselected'),
           open: !!open.lens, onToggle: () => setOpenKey('lens', !open.lens),
           hint: T('skillDirectorHint'),
         },
-          h(SkillSeg, { kind: 'lens-group', items: lensGroups.map((g) => ({ id: g, label: g === 'all' ? T('skillAll') : g })), value: gfilter, onPick: setGFilter }),
+          h(SkillSeg, { kind: 'lens-group', items: lensGroups.map((g) => ({ id: g, label: lensGroupLabel(g) })), value: gfilter, onPick: setGFilter }),
           h(SkillTileGrid, {
             kind: 'lens', items: lensItems, value: profile.lens, cols: 3,
             onPick: (id) => persist({ lens: profile.lens === id ? '' : id }),
@@ -21000,7 +21581,7 @@ const DIRECTOR_KEY_HELP = [
         // ── L3 规格 ──
         h(SkillCard, {
           key: 'form', id: 'form', icon: 'film', title: T('skillForm'),
-          summary: formEntry ? formEntry.name : T('skillUnselected'),
+          summary: formEntry ? skillItemDisplayName(formEntry) : T('skillUnselected'),
           open: !!open.form, onToggle: () => setOpenKey('form', !open.form),
           hint: T('skillFormHint'),
         },
@@ -21012,7 +21593,7 @@ const DIRECTOR_KEY_HELP = [
         // ── L4 影调 ──
         h(SkillCard, {
           key: 'look', id: 'look', icon: 'image', title: T('skillLook'),
-          summary: profile.look ? ((m.looks || []).find((x) => x.id === profile.look) || {}).name : T('skillFollowLens'),
+          summary: profile.look ? skillItemDisplayName((m.looks || []).find((x) => x.id === profile.look) || { id: profile.look }) : T('skillFollowLens'),
           open: !!open.look, onToggle: () => setOpenKey('look', !open.look),
           hint: T('skillLookHint'),
         },
@@ -21161,7 +21742,7 @@ const DIRECTOR_KEY_HELP = [
         this.state = { error: null };
       }
       static getDerivedStateFromError(error) {
-        return { error: error || new Error('未知渲染错误') };
+        return { error: error || new Error(effLang() === 'zh' ? '未知渲染错误' : 'Unknown rendering error') };
       }
       componentDidCatch(error, info) {
         try { console.error('[infinite-canvas] 渲染错误', error, info && info.componentStack); } catch { /* 忽略 */ }
@@ -21171,17 +21752,17 @@ const DIRECTOR_KEY_HELP = [
         const msg = String(this.state.error && this.state.error.message || this.state.error);
         const stack = String(this.state.error && this.state.error.stack || '').split('\n').slice(0, 6).join('\n');
         return h('div', { style: { padding: 24, color: 'var(--dsw-alias-state-error-primary, #e5544b)', fontSize: 13, lineHeight: 20, whiteSpace: 'pre-wrap', userSelect: 'text' } },
-          h('div', { style: { fontWeight: 700, marginBottom: 8 } }, '⚠ 画布界面出现了一个渲染错误（已拦截，不会丢失已保存的数据）'),
+          h('div', { style: { fontWeight: 700, marginBottom: 8 } }, T('renderErrTitle')),
           h('div', { style: { marginBottom: 8 } }, msg),
           stack ? h('div', { style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary)', marginBottom: 12, userSelect: 'text' } }, stack) : null,
           h('button', {
             type: 'button', className: 'dshic-btn',
             onClick: () => { this.setState({ error: null }); },
-          }, '恢复界面'),
+          }, T('btnRecover')),
           h('button', {
             type: 'button', className: 'dshic-btn', style: { marginLeft: 8 },
             onClick: () => { try { window.location.reload(); } catch { /* 忽略 */ } },
-          }, '重载页面'),
+          }, T('btnReload')),
         );
       }
     }
@@ -21434,15 +22015,15 @@ const DIRECTOR_KEY_HELP = [
             },
               h('div', { className: 'dshic-keys-title' }, T('keysTitle')),
               group(T('keysDrag'), [
-                ['Alt + 拖动', T('kAltDrag')],
-                ['拖动', T('kDrag')],
-                ['Shift + 拖动', T('kShiftDrag')],
-                ['Shift + 点击', T('kShiftClick')],
-                ['Shift + 框选', T('kMarquee')],
-                ['中键拖动', T('kMiddle')],
-                ['滚轮', T('kWheel')],
-                ['双击空白', T('kDblClick')],
-                ['右键', T('kRightClick')],
+                [effLang() === 'zh' ? 'Alt + 拖动' : 'Alt + Drag', T('kAltDrag')],
+                [effLang() === 'zh' ? '拖动' : 'Drag', T('kDrag')],
+                [effLang() === 'zh' ? 'Shift + 拖动' : 'Shift + Drag', T('kShiftDrag')],
+                [effLang() === 'zh' ? 'Shift + 点击' : 'Shift + Click', T('kShiftClick')],
+                [effLang() === 'zh' ? 'Shift + 框选' : 'Shift + Box Select', T('kMarquee')],
+                [effLang() === 'zh' ? '中键拖动' : 'Middle Drag', T('kMiddle')],
+                [effLang() === 'zh' ? '滚轮' : 'Scroll', T('kWheel')],
+                [effLang() === 'zh' ? '双击空白' : 'Double Click Blank', T('kDblClick')],
+                [effLang() === 'zh' ? '右键' : 'Right Click', T('kRightClick')],
               ]),
               group(T('keysEdit'), [
                 ['Ctrl/⌘ Z', T('kUndo')],
@@ -21452,7 +22033,7 @@ const DIRECTOR_KEY_HELP = [
                 ['Esc', T('kEsc')],
               ]),
               group(T('keysView'), [
-                ['双击项目名', T('kZoomKeys')],
+                [effLang() === 'zh' ? '双击项目名' : 'Double Click Project', T('kZoomKeys')],
               ]),
               group(T('keysSkill'), [
                 ['Ctrl/⌘ ⇧ K', T('kSkill')],
@@ -21692,7 +22273,7 @@ const DIRECTOR_KEY_HELP = [
     /** 客户端项目条目 → 画布清单（默认画布 id=null 在前；与画布管理器同源）。 */
     function canvasesFromProject(proj) {
       if (!proj) return [];
-      const list = proj.defaultCanvasDeleted ? [] : [{ id: null, name: proj.defaultCanvasName || '默认画布' }];
+      const list = proj.defaultCanvasDeleted ? [] : [{ id: null, name: proj.defaultCanvasName || T('defaultCanvas') }];
       return list.concat((proj.canvases || []).map((c) => ({ id: c.id, name: c.name })));
     }
     /** 确保项目在客户端项目表里（绑定到尚未同步的项目时本地先可见）。 */
@@ -21704,7 +22285,7 @@ const DIRECTOR_KEY_HELP = [
       if (!String(name || '').trim()) return;
       update((s) => {
         s.projects = [{
-          id: pid, name: String(name).trim(), canvases: [], defaultCanvasName: '默认画布',
+          id: pid, name: String(name).trim(), canvases: [], defaultCanvasName: T('defaultCanvas'),
           createdAt: Date.now(), updatedAt: Date.now(),
         }].concat(s.projects || []);
       });
@@ -21746,7 +22327,7 @@ const DIRECTOR_KEY_HELP = [
             canvasId: canvasId == null ? null : canvasId,
             canvases: canvasesFromProject(local),
             occupied: prev.occupied || {},
-            defaultCanvasName: (local && local.defaultCanvasName) || '默认画布',
+            defaultCanvasName: (local && local.defaultCanvasName) || T('defaultCanvas'),
           };
           s.bindingRev = (s.bindingRev || 0) + 1;
           s.bindingError = null;
@@ -22037,7 +22618,7 @@ const DIRECTOR_KEY_HELP = [
         CTX = ctx;
         // 创作技能快捷键（Ctrl/⌘ + Shift + K）：命令进入 ctx.shortcuts 目录 → Harness 快捷键面板可见
         registerSkillShortcut(ctx);
-        ctx.effect(() => ctx.locale.register(NS, { zh: DICT_ZH, en: DICT_EN }), 'infinite-canvas: dictionaries');
+        ctx.effect(() => ctx.locale.register(NS, { zh: DICT_ZH, en: DICT_EN, id: DICT_ID }), 'infinite-canvas: dictionaries');
         ctx.effect(() => {
           const el = document.createElement('style');
           el.id = 'dsh-ic-styles';
@@ -22052,8 +22633,8 @@ const DIRECTOR_KEY_HELP = [
           const unsub = ctx.locale.subscribe(() => notify());
           // ArtCraft 后期工具链状态探测（失败静默，Craft 功能各自降级）
           probeCraft();
-          // 检查更新（Host RPC；Host 旧版未带此方法时静默）
-          checkUpdate(true);
+          // 检查更新：已按用户要求关闭启动时自动检查，避免横幅打扰
+          // checkUpdate(true);
           // 更新源配置（自动探测/手动覆盖；旧 Host 无此 RPC 时静默降级为仅展示）
           fetchUpdateRegistry();
           // 数据根目录（Host 旧版静默降级为 IndexedDB 模式）；就绪后把本地遗留 blob 搬进服务端（v1 旧布局由 Host 侧自动迁移）

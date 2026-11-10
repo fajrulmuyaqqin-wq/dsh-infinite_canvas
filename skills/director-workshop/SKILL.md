@@ -1,7 +1,7 @@
 ---
 name: director-workshop
-description: 导演工作坊——媒体创作模式的引导式创作流程。从"选导演"到"交付成片"，每一步给菜单、讲原理、一次只做一个决定。适用于：进入媒体创作模式、想拍短剧/视频但不知从哪下手、或说"带我做/引导我创作"时。
-whenToUse: 用户进入媒体创作模式、表达创作意图（拍片/短剧/视频/分镜）、或面对空白页不知如何开始时，先加载本技能再动手。
+description: Director Workshop — Guided creative workflow for Media Studio mode. Guides step-by-step from choosing a director to final delivery. Ideal when starting a short drama or video project.
+whenToUse: Use when entering Media Studio mode, expressing creative intent (video/short drama/storyboard), or needing step-by-step guidance.
 ---
 
 # 导演工作坊（Director Workshop）

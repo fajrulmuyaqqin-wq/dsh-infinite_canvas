@@ -6,8 +6,8 @@
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: media-studio
-        name: 媒体创作
-        description: 导演第一视角：无限画布（剧本/分镜/生成）+ ArtCraft 家族（剪辑/调色/混音/交付）端到端创作流水线
+        name: Media Studio
+        description: "Director point-of-view: Infinite Canvas (script/storyboard/generation) + ArtCraft family (edit/color/mix/delivery) end-to-end creative pipeline."
         # 内置预设已占用 order 1/2/3/4（standard=1, ptc=2, minimal=3, cordis=4），
         # 本预设取 5 以避免与 ptc 抢同一排序位。
         order: 5

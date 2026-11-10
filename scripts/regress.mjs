@@ -110,6 +110,7 @@ const SUITE = [
   { name: 'test-motion-brief-timeline.mjs', desc: '运动驱动（步频防滑步）/ 雾+景深进规格 / 一句话模板库（打斗·追逐·对话）/ 时间轴能力' },
   { name: 'test-cycle-path.mjs', desc: '循环动作（走/跑双相位闭环）+ 路径点拾取/反投影/UI 入口' },
   { name: 'test-theme-locale.mjs', desc: '深色主题跟随宿主 body[data-ds-dark-theme] / 深色变量与对比度 / 面板名中英双语 / locale 快照 active 字段' },
+  { name: 'test-locale-completeness.mjs', desc: '界面语言国际化与多语言完整度（中英1020词条100%对齐/印尼语阶梯回退/杜绝倒置判定）' },
   { name: 'test-expand-assets.mjs', desc: '铺开到画布：缺资产→带设定图提示词的图片节点' },
   { name: 'test-node-merge.mjs', desc: '节点类型合并：旧文档迁移 / 连线与 data 不丢 / 幂等' },
   { name: 'test-node-actions.mjs', desc: '结果操作按钮统一在节点末尾左下角' },

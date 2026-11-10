@@ -550,10 +550,10 @@ const barsOn = () => HDR() + FOOT();
   for (const sel of ['button', 'select', 'video', 'textarea', 'input']) {
     ok(LAYOUT.NODE_INTERACTIVE_SELECTOR.includes(sel), '节点交互控件选择器缺少 ' + sel + '（会被误判为可打开面板区域）');
   }
-  // 拖动只从标题栏/节点空白发起：内容区 pointerdown 不得进入拖动分支
+  // 拖动可从标题栏与卡片主体发起；交互控件保留原生拦截，onClick 靠 !drag.moved 弹面板
   const npd = fnSrc('onNodePointerDown');
   ok(!!npd, '未找到 onNodePointerDown（拖动入口被改名？）');
-  ok(/isNodeContentTarget\(t\)/.test(npd), 'onNodePointerDown 未排除内容区：内容区按下会开始拖动节点');
+  ok(/isNodeInteractiveTarget\(t\)/.test(npd), 'onNodePointerDown 未拦截交互控件：控件按下不应被当成卡片拖动');
   ok(!/openComposerFor/.test(npd), 'onNodePointerDown 里仍在打开面板：点标题栏会弹面板（应只在内容区 onClick 里打开）');
   // 图片预览不拦 pointerdown（点了要能弹面板）：只允许 onDoubleClick 做灯箱
   const imgBlock = /key: 'img', className: 'dshic-media-fill'[\s\S]{0,700}?\n\s*\}\)/.exec(src);

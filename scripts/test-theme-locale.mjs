@@ -173,15 +173,18 @@ const LAYOUT = sandbox.window.__DSH_IC_LAYOUT__ || null;
 {
   ok(!!captured.dicts, '未捕获到注册的词典（locale.register 未被调用）');
   const d = captured.dicts || {};
-  ok(d.zh && d.en, '词典缺少 zh 或 en');
-  // D. 两种语言下面板名都要有，且不能相同（否则"跟随语言"是假的）
+  ok(d.zh && d.en && d.id, '词典缺少 zh, en 或 id');
+  // D. 语言词典下面板名都要有，且中英不同（否则"跟随语言"是假的）
   const zhName = d.zh && d.zh.panel;
   const enName = d.en && d.en.panel;
+  const idName = d.id && d.id.panel;
   ok(typeof zhName === 'string' && zhName.length, '中文词典缺少 panel（面板名）');
   ok(typeof enName === 'string' && enName.length, '英文词典缺少 panel（面板名）');
+  ok(typeof idName === 'string' && idName.length, '印尼语词典缺少 panel（面板名）');
   ok(zhName !== enName, '中英文面板名相同（' + zhName + '）——语言切换不会改变显示');
   ok(zhName === '无限画布', '中文面板名不是「无限画布」（实际 ' + zhName + '）');
   ok(enName === 'Infinite Canvas', '英文面板名不是 "Infinite Canvas"（实际 ' + enName + '）');
+  ok(idName === 'Infinite Canvas (Kanvas Tak Terhingga)', '印尼语面板名不是 "Infinite Canvas (Kanvas Tak Terhingga)"（实际 ' + idName + '）');
 
   // C. 面板名 / 页签名必须走 T('panel')，不许硬编码英文名
   const idx = src.indexOf("id: PANEL_ID");
@@ -211,21 +214,25 @@ const LAYOUT = sandbox.window.__DSH_IC_LAYOUT__ || null;
   };
   const idOf = evalLocaleIdOf();
   ok(idOf({ active: 'en' }) === 'en', 'localeIdOf 吃不到 {active:"en"}');
+  ok(idOf({ active: 'id' }) === 'id', 'localeIdOf 吃不到 {active:"id"}');
   ok(idOf({ active: 'zh-CN' }) === 'zh-CN', 'localeIdOf 吃不到 {active:"zh-CN"}');
   ok(idOf('en-US') === 'en-US', 'localeIdOf 不支持字符串形态');
   ok(idOf({ locale: 'zh' }) === 'zh', 'localeIdOf 不支持旧字段 locale');
   ok(idOf({ id: 'en' }) === 'en', 'localeIdOf 不支持旧字段 id');
   ok(idOf(null) === '' && idOf({}) === '', 'localeIdOf 空值应返回空串');
 
-  // 面板标签函数在两种快照下要给出对应语言
+  // 面板标签函数在不同快照下要给出对应语言
   if (captured.panellistLabel) {
-    hostLocaleSnapshot = { active: 'zh', locales: ['zh', 'en'], revision: 0 };
+    hostLocaleSnapshot = { active: 'zh', locales: ['zh', 'en', 'id'], revision: 0 };
     const zh2 = captured.panellistLabel();
-    hostLocaleSnapshot = { active: 'en', locales: ['zh', 'en'], revision: 1 };
+    hostLocaleSnapshot = { active: 'en', locales: ['zh', 'en', 'id'], revision: 1 };
     const en2 = captured.panellistLabel();
+    hostLocaleSnapshot = { active: 'id', locales: ['zh', 'en', 'id'], revision: 2 };
+    const id2 = captured.panellistLabel();
     ok(zh2 === '无限画布', '宿主中文时面板名应为「无限画布」，实际 ' + zh2);
     ok(en2 === 'Infinite Canvas', '宿主英文时面板名应为 "Infinite Canvas"，实际 ' + en2);
-    ok(zh2 !== en2, '面板名没有跟随宿主语言变化');
+    ok(id2 === 'Infinite Canvas (Kanvas Tak Terhingga)', '宿主印尼语时面板名应为 "Infinite Canvas (Kanvas Tak Terhingga)"，实际 ' + id2);
+    ok(zh2 !== en2 && en2 !== id2, '面板名没有跟随宿主语言变化');
   } else {
     errs.push('未捕获到 sidebar.panellist 的 label（面板名无法验证）');
   }
